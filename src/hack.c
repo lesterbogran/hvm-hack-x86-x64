@@ -11,6 +11,7 @@ int main(int argc, char **argv) {
   }
 
   hvm_load_program_from_file(&hvm, argv[1]);
+  // TODO: introduce hvm_execute_program()
   for (int i = 0; i < 69 && !hvm.halt; ++i) {
     Err err = hvm_execute_inst(&hvm);
     hvm_dump_stack(stdout, &hvm);
