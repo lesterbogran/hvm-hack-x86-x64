@@ -1,4 +1,4 @@
 *.har
-./hack
-./hackc
-./dehack
+hack
+hackc
+dehack
