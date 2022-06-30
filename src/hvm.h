@@ -507,40 +507,47 @@ void hvm_translate_source(String_View source, Hvm *hvm, Label_Table *lt) {
     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
     if (line.count > 0 && *line.data != '#') {
       String_View inst_name = sv_chop_by_delim(&line, ' ');
-      String_View operand = sv_trim(sv_chop_by_delim(&line, '#'));
 
       if (inst_name.count > 0 && inst_name.data[inst_name.count - 1] == ':') {
         String_View label = {.count = inst_name.count - 1,
                              .data = inst_name.data};
 
         label_table_push(lt, label, hvm->program_size);
-      } else if (sv_eq(inst_name, cstr_as_sv("nop"))) {
-        hvm->program[hvm->program_size++] = (Inst){
-            .type = INST_NOP,
-        };
-      } else if (sv_eq(inst_name, cstr_as_sv("push"))) {
-        hvm->program[hvm->program_size++] =
-            (Inst){.type = INST_PUSH, .operand = sv_to_int(operand)};
-      } else if (sv_eq(inst_name, cstr_as_sv("dup"))) {
-        hvm->program[hvm->program_size++] =
-            (Inst){.type = INST_DUP, .operand = sv_to_int(operand)};
-      } else if (sv_eq(inst_name, cstr_as_sv("plus"))) {
-        hvm->program[hvm->program_size++] = (Inst){.type = INST_PLUS};
-      } else if (sv_eq(inst_name, cstr_as_sv("jmp"))) {
-        if (operand.count > 0 && isdigit(*operand.data)) {
-          hvm->program[hvm->program_size++] = (Inst){
-              .type = INST_JMP,
-              .operand = sv_to_int(operand),
-          };
-        } else {
-          label_table_push_unresolved_jmp(lt, hvm->program_size, operand);
 
-          hvm->program[hvm->program_size++] = (Inst){.type = INST_JMP};
+        inst_name = sv_trim(sv_chop_by_delim(&line, ' '));
+      }
+
+      if (inst_name.count > 0) {
+        String_View operand = sv_trim(sv_chop_by_delim(&line, '#'));
+
+        if (sv_eq(inst_name, cstr_as_sv("nop"))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_NOP,
+          };
+        } else if (sv_eq(inst_name, cstr_as_sv("push"))) {
+          hvm->program[hvm->program_size++] =
+              (Inst){.type = INST_PUSH, .operand = sv_to_int(operand)};
+        } else if (sv_eq(inst_name, cstr_as_sv("dup"))) {
+          hvm->program[hvm->program_size++] =
+              (Inst){.type = INST_DUP, .operand = sv_to_int(operand)};
+        } else if (sv_eq(inst_name, cstr_as_sv("plus"))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_PLUS};
+        } else if (sv_eq(inst_name, cstr_as_sv("jmp"))) {
+          if (operand.count > 0 && isdigit(*operand.data)) {
+            hvm->program[hvm->program_size++] = (Inst){
+                .type = INST_JMP,
+                .operand = sv_to_int(operand),
+            };
+          } else {
+            label_table_push_unresolved_jmp(lt, hvm->program_size, operand);
+
+            hvm->program[hvm->program_size++] = (Inst){.type = INST_JMP};
+          }
+        } else {
+          fprintf(stderr, "ERROR: unknown instruction `%.*s`\n",
+                  (int)inst_name.count, inst_name.data);
+          exit(1);
         }
-      } else {
-        fprintf(stderr, "ERROR: unknown instruction `%.*s`\n",
-                (int)inst_name.count, inst_name.data);
-        exit(1);
       }
     }
   }
