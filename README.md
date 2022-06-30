@@ -7,7 +7,7 @@ The hacker Virtual Machine
 ```console
 $ make
 $ make examples
-$ ./hack ./examples/fibs.har
+$ ./hack -i ./examples/fib.har -l 69
 ```
 
 ## Components
