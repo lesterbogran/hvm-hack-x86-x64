@@ -3,15 +3,34 @@
 
 Hvm hvm = {0};
 
+char *shift(int *argc, char ***argv) {
+  assert(*argc > 0);
+  char *result = **argv;
+  *argv += 1;
+  *argc -= 1;
+  return result;
+}
+
+void usage(FILE *stream, const char *program) {
+  fprintf(stream, "Usage: %s <input.hack> <output.har>\n", program);
+}
+
 int main(int argc, char **argv) {
-  if (argc < 3) {
-    fprintf(stderr, "Usage: ./hackc <input.hack> <output.har>\n");
-    fprintf(stderr, "ERROR: expected input and output\n");
+  const char *program = shift(&argc, &argv);
+
+  if (argc == 0) {
+    usage(stderr, program);
+    fprintf(stderr, "ERROR: expected input\n");
     exit(1);
   }
+  const char *input_file_path = shift(&argc, &argv);
 
-  const char *input_file_path = argv[1];
-  const char *output_file_path = argv[2];
+  if (argc == 0) {
+    usage(stderr, program);
+    fprintf(stderr, "ERROR: expected output\n");
+    exit(1);
+  }
+  const char *output_file_path = shift(&argc, &argv);
 
   String_View source = sv_slurp_file(input_file_path);
 
