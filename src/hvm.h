@@ -85,7 +85,7 @@ Err hvm_execute_program(Hvm *hvm, int limit);
 void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_memory(Hvm *hvm, Inst *program, size_t program_size);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
-void hvm_save_program_to_file(Hvm *hvm, const char *file_path);
+void hvm_save_program_to_file(const Hvm *hvm, const char *file_path);
 
 typedef struct {
   size_t count;
@@ -363,7 +363,7 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
   fclose(f);
 }
 
-void hvm_save_program_to_file(Hvm *hvm, const char *file_path) {
+void hvm_save_program_to_file(const Hvm *hvm, const char *file_path) {
   FILE *f = fopen(file_path, "wb");
   if (f == NULL) {
     fprintf(stderr, "ERROR: Could not open file `%s`: %s\n", file_path,
@@ -455,23 +455,21 @@ int sv_to_int(String_View sv) {
 Inst hvm_translate_line(String_View line) {
   line = sv_trim_left(line);
   String_View inst_name = sv_chop_by_delim(&line, ' ');
+  String_View operand = sv_trim(sv_chop_by_delim(&line, '#'));
 
   if (sv_eq(inst_name, cstr_as_sv("push"))) {
     line = sv_trim_left(line);
-    int operand = sv_to_int(sv_trim_right(line));
-    return (Inst){.type = INST_PUSH, .operand = operand};
+    return (Inst){.type = INST_PUSH, .operand = sv_to_int(operand)};
   } else if (sv_eq(inst_name, cstr_as_sv("dup"))) {
     line = sv_trim_left(line);
-    int operand = sv_to_int(sv_trim_right(line));
-    return (Inst){.type = INST_DUP, .operand = operand};
+    return (Inst){.type = INST_DUP, .operand = sv_to_int(operand)};
   } else if (sv_eq(inst_name, cstr_as_sv("plus"))) {
     return (Inst){.type = INST_PLUS};
   } else if (sv_eq(inst_name, cstr_as_sv("jmp"))) {
     line = sv_trim_left(line);
-    int operand = sv_to_int(sv_trim_right(line));
-    return (Inst){.type = INST_JMP, .operand = operand};
+    return (Inst){.type = INST_JMP, .operand = sv_to_int(operand)};
   } else {
-    fprintf(stderr, "ERROR: unknown instruction `%.*s`", (int)inst_name.count,
+    fprintf(stderr, "ERROR: unknown instruction `%.*s`\n", (int)inst_name.count,
             inst_name.data);
     exit(1);
   }
@@ -483,7 +481,7 @@ size_t hvm_translate_source(String_View source, Inst *program,
   while (source.count > 0) {
     assert(program_size < program_capacity);
     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
-    if (line.count > 0) {
+    if (line.count > 0 && *line.data != '#') {
       program[program_size++] = hvm_translate_line(line);
     }
   }
