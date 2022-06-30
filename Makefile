@@ -10,10 +10,10 @@ LIBS=
 .PHONY: all
 all: hackc hack
 
-hackc: ./src/hackc.c ./src/hvm.c
+hackc: ./src/hackc.c ./src/hvm.h
 	$(CC) $(CFLAGS) -o hackc ./src/hackc.c $(LIBS)
 
-hack: ./src/hack.c ./src/hvm.c
+hack: ./src/hack.c ./src/hvm.h
 	$(CC) $(CFLAGS) -o hack ./src/hack.c $(LIBS)
 
 

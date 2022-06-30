@@ -1,4 +1,7 @@
-#include "./hvm.c"
+#define HVM_IMPLEMENTATION
+#include "./hvm.h"
+
+Hvm hvm = {0};
 
 int main(int argc, char **argv) {
   if (argc < 3) {
@@ -10,7 +13,7 @@ int main(int argc, char **argv) {
   const char *input_file_path = argv[1];
   const char *output_file_path = argv[2];
 
-  String_View source = slurp_file(input_file_path);
+  String_View source = sv_slurp_file(input_file_path);
 
   hvm.program_size =
       hvm_translate_source(source, hvm.program, HVM_PROGRAM_CAPACITY);

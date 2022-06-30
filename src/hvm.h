@@ -1,3 +1,6 @@
+#ifndef HVM_H_
+#define HVM_H_
+
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -21,6 +24,92 @@ typedef enum {
   ERR_DIV_BY_ZERO,
 } Err;
 
+const char *err_as_cstr(Err err);
+
+typedef int64_t Word;
+
+typedef enum {
+  INST_NOP = 0,
+  INST_PUSH,
+  INST_DUP,
+  INST_PLUS,
+  INST_MINUS,
+  INST_MULT,
+  INST_DIV,
+  INST_JMP,
+  INST_JMP_IF,
+  INST_EQ,
+  INST_HALT,
+  INST_PRINT_DEBUG,
+} Inst_Type;
+
+const char *inst_type_as_cstr(Inst_Type type);
+
+typedef struct {
+  Inst_Type type;
+  Word operand;
+} Inst;
+
+typedef struct {
+  Word stack[HVM_STACK_CAPACITY];
+  Word stack_size;
+
+  Inst program[HVM_PROGRAM_CAPACITY];
+  Word program_size;
+  Word ip;
+
+  int halt;
+} Hvm;
+
+// TODO: Replace MAKE_INST_* macros with functions
+// They are not that useful anymore since we can load/save programs to/from
+// files
+#define MAKE_INST_PUSH(value)                                                  \
+  { .type = INST_PUSH, .operand = (value) }
+#define MAKE_INST_PLUS                                                         \
+  { .type = INST_PLUS }
+#define MAKE_INST_MINUS                                                        \
+  { .type = INST_MINUS }
+#define MAKE_INST_MULT                                                         \
+  { .type = INST_MULT }
+#define MAKE_INST_DIV                                                          \
+  { .type = INST_DIV }
+#define MAKE_INST_JMP(addr)                                                    \
+  { .type = INST_JMP, .operand = (addr) }
+#define MAKE_INST_DUP(addr)                                                    \
+  { .type = INST_DUP, .operand = (addr) }
+#define MAKE_INST_HALT                                                         \
+  { .type = INST_HALT, .operand = (addr) }
+
+Err hvm_execute_inst(Hvm *hvm);
+void hvm_dump_stack(FILE *stream, const Hvm *hvm);
+void hvm_load_program_from_memory(Hvm *hvm, Inst *program, size_t program_size);
+void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
+void hvm_save_program_to_file(Inst *program, size_t program_size,
+                              const char *file_path);
+
+typedef struct {
+  size_t count;
+  const char *data;
+} String_View;
+
+String_View cstr_as_sv(const char *cstr);
+String_View sv_trim_left(String_View sv);
+String_View sv_trim_right(String_View sv);
+String_View sv_trim(String_View sv);
+String_View sv_chop_by_delim(String_View *sv, char delim);
+int sv_eq(String_View a, String_View b);
+int sv_to_int(String_View sv);
+String_View sv_slurp_file(const char *file_path);
+
+Inst hvm_translate_line(String_View line);
+size_t hvm_translate_source(String_View source, Inst *program,
+                            size_t program_capacity);
+
+#endif // HVM_H_
+
+#ifdef HVM_IMPLEMENTATION
+
 const char *err_as_cstr(Err err) {
   switch (err) {
   case ERR_OK:
@@ -41,23 +130,6 @@ const char *err_as_cstr(Err err) {
     assert(0 && "err_as_cstr: Unreachable");
   }
 }
-
-typedef int64_t Word;
-
-typedef enum {
-  INST_NOP = 0,
-  INST_PUSH,
-  INST_DUP,
-  INST_PLUS,
-  INST_MINUS,
-  INST_MULT,
-  INST_DIV,
-  INST_JMP,
-  INST_JMP_IF,
-  INST_EQ,
-  INST_HALT,
-  INST_PRINT_DEBUG,
-} Inst_Type;
 
 const char *inst_type_as_cstr(Inst_Type type) {
   switch (type) {
@@ -89,39 +161,6 @@ const char *inst_type_as_cstr(Inst_Type type) {
     assert(0 && "inst_type_as_cstr: unreachable");
   }
 }
-
-typedef struct {
-  Inst_Type type;
-  Word operand;
-} Inst;
-
-typedef struct {
-  Word stack[HVM_STACK_CAPACITY];
-  Word stack_size;
-
-  Inst program[HVM_PROGRAM_CAPACITY];
-  Word program_size;
-  Word ip;
-
-  int halt;
-} Hvm;
-
-#define MAKE_INST_PUSH(value)                                                  \
-  { .type = INST_PUSH, .operand = (value) }
-#define MAKE_INST_PLUS                                                         \
-  { .type = INST_PLUS }
-#define MAKE_INST_MINUS                                                        \
-  { .type = INST_MINUS }
-#define MAKE_INST_MULT                                                         \
-  { .type = INST_MULT }
-#define MAKE_INST_DIV                                                          \
-  { .type = INST_DIV }
-#define MAKE_INST_JMP(addr)                                                    \
-  { .type = INST_JMP, .operand = (addr) }
-#define MAKE_INST_DUP(addr)                                                    \
-  { .type = INST_DUP, .operand = (addr) }
-#define MAKE_INST_HALT                                                         \
-  { .type = INST_HALT, .operand = (addr) }
 
 Err hvm_execute_inst(Hvm *hvm) {
   if (hvm->ip < 0 || hvm->ip >= hvm->program_size) {
@@ -331,13 +370,6 @@ void hvm_save_program_to_file(Inst *program, size_t program_size,
   fclose(f);
 }
 
-Hvm hvm = {0};
-
-typedef struct {
-  size_t count;
-  const char *data;
-} String_View;
-
 String_View cstr_as_sv(const char *cstr) {
   return (String_View){
       .count = strlen(cstr),
@@ -446,7 +478,7 @@ size_t hvm_translate_source(String_View source, Inst *program,
   return program_size;
 }
 
-String_View slurp_file(const char *file_path) {
+String_View sv_slurp_file(const char *file_path) {
   FILE *f = fopen(file_path, "r");
   if (f == NULL) {
     fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
@@ -494,3 +526,5 @@ String_View slurp_file(const char *file_path) {
       .data = buffer,
   };
 }
+
+#endif // HVM_IMPLEMENTATION
