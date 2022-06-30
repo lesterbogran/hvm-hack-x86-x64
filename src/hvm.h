@@ -46,6 +46,7 @@ typedef enum {
   INST_JMP,
   INST_JMP_IF,
   INST_RET,
+  INST_CALL,
   INST_EQ,
   INST_HALT,
   INST_NOT,
@@ -166,6 +167,8 @@ int inst_has_operand(Inst_Type type) {
     return 1;
   case INST_RET:
     return 0;
+  case INST_CALL:
+    return 1;
   case INST_EQ:
     return 0;
   case INST_HALT:
@@ -217,6 +220,8 @@ const char *inst_name(Inst_Type type) {
     return "jmp_if";
   case INST_RET:
     return "ret";
+  case INST_CALL:
+    return "call";
   case INST_EQ:
     return "eq";
   case INST_HALT:
@@ -400,6 +405,15 @@ Err hvm_execute_inst(Hvm *hvm) {
 
     hvm->ip = hvm->stack[hvm->stack_size - 1].as_u64;
     hvm->stack_size -= 1;
+    break;
+
+  case INST_CALL:
+    if (hvm->stack_size >= HVM_STACK_CAPACITY) {
+      return ERR_STACK_OVERFLOW;
+    }
+
+    hvm->stack[hvm->stack_size++].as_u64 = hvm->ip;
+    hvm->ip = inst.operand.as_u64;
     break;
 
   case INST_HALT:
@@ -766,6 +780,19 @@ void hvm_translate_source(String_View source, Hvm *hvm, Basm *basm) {
                 .type = INST_JMP_IF,
             };
           }
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_CALL)))) {
+          if (operand.count > 0 && isdigit(*operand.data)) {
+            hvm->program[hvm->program_size++] = (Inst){
+                .type = INST_CALL,
+                .operand = {.as_i64 = sv_to_int(operand)},
+            };
+          } else {
+            basm_push_deferred_operand(basm, hvm->program_size, operand);
+
+            hvm->program[hvm->program_size++] = (Inst){
+                .type = INST_CALL,
+            };
+          }
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_HALT)))) {
           hvm->program[hvm->program_size++] = (Inst){.type = INST_HALT};
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PLUSF)))) {
@@ -800,6 +827,10 @@ void hvm_translate_source(String_View source, Hvm *hvm, Basm *basm) {
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PRINT_DEBUG)))) {
           hvm->program[hvm->program_size++] = (Inst){
               .type = INST_PRINT_DEBUG,
+          };
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_RET)))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_RET,
           };
         } else {
           fprintf(stderr, "ERROR: unknown instruction `%.*s`\n",
