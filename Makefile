@@ -20,10 +20,10 @@ hack: ./src/hack.c ./src/hvm.c
 .PHONY: examples
 examples: ./examples/fib.har ./examples/123.har
 
-./examples/fib.har: ./examples/fib.hack
+./examples/fib.har: hackc ./examples/fib.hack
 	./hackc ./examples/fib.hack ./examples/fib.har
 
-./examples/123.har: ./examples/123.hack
+./examples/123.har: hackc ./examples/123.hack
 	./hackc ./examples/123.hack ./examples/123.har
 
 # end
