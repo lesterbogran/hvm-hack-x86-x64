@@ -45,6 +45,7 @@ typedef enum {
   INST_DIVF,
   INST_JMP,
   INST_JMP_IF,
+  INST_RET,
   INST_EQ,
   INST_HALT,
   INST_NOT,
@@ -55,8 +56,6 @@ typedef enum {
 
 const char *inst_name(Inst_Type type);
 int inst_has_operand(Inst_Type type);
-
-const char *inst_type_as_cstr(Inst_Type type);
 
 typedef uint64_t Inst_Addr;
 
@@ -165,6 +164,8 @@ int inst_has_operand(Inst_Type type) {
     return 1;
   case INST_JMP_IF:
     return 1;
+  case INST_RET:
+    return 0;
   case INST_EQ:
     return 0;
   case INST_HALT:
@@ -214,6 +215,8 @@ const char *inst_name(Inst_Type type) {
     return "jmp";
   case INST_JMP_IF:
     return "jmp_if";
+  case INST_RET:
+    return "ret";
   case INST_EQ:
     return "eq";
   case INST_HALT:
@@ -251,55 +254,6 @@ const char *err_as_cstr(Err err) {
     return "ERR_DIV_BY_ZERO";
   default:
     assert(0 && "err_as_cstr: Unreachable");
-    exit(1);
-  }
-}
-
-const char *inst_type_as_cstr(Inst_Type type) {
-  switch (type) {
-  case INST_NOP:
-    return "INST_NOP";
-  case INST_PUSH:
-    return "INST_PUSH";
-  case INST_DROP:
-    return "INST_DROP";
-  case INST_PLUSI:
-    return "INST_PLUSI";
-  case INST_MINUSI:
-    return "INST_MINUSI";
-  case INST_MULTI:
-    return "INST_MULTI";
-  case INST_DIVI:
-    return "INST_DIVI";
-  case INST_PLUSF:
-    return "INST_PLUSF";
-  case INST_MINUSF:
-    return "INST_MINUSF";
-  case INST_MULTF:
-    return "INST_MULTF";
-  case INST_DIVF:
-    return "INST_DIVF";
-  case INST_JMP:
-    return "INST_JMP";
-  case INST_HALT:
-    return "INST_HALT";
-  case INST_JMP_IF:
-    return "INST_JMP_IF";
-  case INST_EQ:
-    return "INST_EQ";
-  case INST_PRINT_DEBUG:
-    return "INST_PRINT_DEBUG";
-  case INST_DUP:
-    return "INST_DUP";
-  case INST_SWAP:
-    return "INST_SWAP";
-  case INST_NOT:
-    return "INST_NOT";
-  case INST_GEF:
-    return "INST_GEF";
-  case NUMBER_OF_INSTS:
-  default:
-    assert(0 && "inst_type_as_cstr: unreachable");
     exit(1);
   }
 }
@@ -437,6 +391,15 @@ Err hvm_execute_inst(Hvm *hvm) {
 
   case INST_JMP:
     hvm->ip = inst.operand.as_u64;
+    break;
+
+  case INST_RET:
+    if (hvm->stack_size < 1) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    hvm->ip = hvm->stack[hvm->stack_size - 1].as_u64;
+    hvm->stack_size -= 1;
     break;
 
   case INST_HALT:
