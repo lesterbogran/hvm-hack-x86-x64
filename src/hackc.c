@@ -2,6 +2,7 @@
 #include "./hvm.h"
 
 Hvm hvm = {0};
+Label_Table lt = {0};
 
 char *shift(int *argc, char ***argv) {
   assert(*argc > 0);
@@ -34,8 +35,7 @@ int main(int argc, char **argv) {
 
   String_View source = sv_slurp_file(input_file_path);
 
-  hvm.program_size =
-      hvm_translate_source(source, hvm.program, HVM_PROGRAM_CAPACITY);
+  hvm_translate_source(source, &hvm, &lt);
 
   hvm_save_program_to_file(&hvm, output_file_path);
 
