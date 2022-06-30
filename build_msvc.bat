@@ -15,5 +15,5 @@ cl.exe %CFLAGS% ./src/dehack.c
 
 if "%1" == "examples" setlocal EnableDelayedExpansion && for %%e in (%EXAMPLES%) do (
     set name=%%e
-    "./hackc.exe" !name:~0,-2!hack %%e
+    "./hackc.exe" !name:~0,-3!hack %%e
 )
