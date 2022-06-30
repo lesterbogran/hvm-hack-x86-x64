@@ -1,9 +1,10 @@
-#ifndef BM_H_
+#ifndef HVM_H_
 #define HVM_H_
 
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@
 #define HVM_PROGRAM_CAPACITY 1024
 #define LABEL_CAPACITY 1024
 #define DEFERRED_OPERANDS_CAPACITY 1024
+#define NUMBER_LITERAL_CAPACITY 1024
 
 typedef enum {
   ERR_OK = 0,
@@ -30,7 +32,9 @@ const char *err_as_cstr(Err err);
 typedef enum {
   INST_NOP = 0,
   INST_PUSH,
+  INST_DROP,
   INST_DUP,
+  INST_SWAP,
   INST_PLUSI,
   INST_MINUSI,
   INST_MULTI,
@@ -43,6 +47,8 @@ typedef enum {
   INST_JMP_IF,
   INST_EQ,
   INST_HALT,
+  INST_NOT,
+  INST_GEF,
   INST_PRINT_DEBUG,
   NUMBER_OF_INSTS,
 } Inst_Type;
@@ -61,8 +67,7 @@ typedef union {
   void *as_ptr;
 } Word;
 
-// static_assert(sizeof(Word) == 8,
-//               "The HVM's Word is expected to be 64 bits");
+static_assert(sizeof(Word) == 8, "The HVM's Word is expected to be 64 bits");
 
 typedef struct {
   Inst_Type type;
@@ -136,6 +141,8 @@ int inst_has_operand(Inst_Type type) {
     return 0;
   case INST_PUSH:
     return 1;
+  case INST_DROP:
+    return 0;
   case INST_DUP:
     return 1;
   case INST_PLUSI:
@@ -164,9 +171,16 @@ int inst_has_operand(Inst_Type type) {
     return 0;
   case INST_PRINT_DEBUG:
     return 0;
+  case INST_SWAP:
+    return 1;
+  case INST_NOT:
+    return 0;
+  case INST_GEF:
+    return 0;
   case NUMBER_OF_INSTS:
   default:
     assert(0 && "inst_has_operand: unreachable");
+    exit(1);
   }
 }
 
@@ -176,6 +190,8 @@ const char *inst_name(Inst_Type type) {
     return "nop";
   case INST_PUSH:
     return "push";
+  case INST_DROP:
+    return "drop";
   case INST_DUP:
     return "dup";
   case INST_PLUSI:
@@ -204,9 +220,16 @@ const char *inst_name(Inst_Type type) {
     return "halt";
   case INST_PRINT_DEBUG:
     return "print_debug";
+  case INST_SWAP:
+    return "swap";
+  case INST_NOT:
+    return "not";
+  case INST_GEF:
+    return "gef";
   case NUMBER_OF_INSTS:
   default:
     assert(0 && "inst_name: unreachable");
+    exit(1);
   }
 }
 
@@ -228,6 +251,7 @@ const char *err_as_cstr(Err err) {
     return "ERR_DIV_BY_ZERO";
   default:
     assert(0 && "err_as_cstr: Unreachable");
+    exit(1);
   }
 }
 
@@ -237,6 +261,8 @@ const char *inst_type_as_cstr(Inst_Type type) {
     return "INST_NOP";
   case INST_PUSH:
     return "INST_PUSH";
+  case INST_DROP:
+    return "INST_DROP";
   case INST_PLUSI:
     return "INST_PLUSI";
   case INST_MINUSI:
@@ -265,9 +291,16 @@ const char *inst_type_as_cstr(Inst_Type type) {
     return "INST_PRINT_DEBUG";
   case INST_DUP:
     return "INST_DUP";
+  case INST_SWAP:
+    return "INST_SWAP";
+  case INST_NOT:
+    return "INST_NOT";
+  case INST_GEF:
+    return "INST_GEF";
   case NUMBER_OF_INSTS:
   default:
     assert(0 && "inst_type_as_cstr: unreachable");
+    exit(1);
   }
 }
 
@@ -302,6 +335,14 @@ Err hvm_execute_inst(Hvm *hvm) {
       return ERR_STACK_OVERFLOW;
     }
     hvm->stack[hvm->stack_size++] = inst.operand;
+    hvm->ip += 1;
+    break;
+
+  case INST_DROP:
+    if (hvm->stack_size >= HVM_STACK_CAPACITY) {
+      return ERR_STACK_OVERFLOW;
+    }
+    hvm->stack_size -= 1;
     hvm->ip += 1;
     break;
 
@@ -414,24 +455,41 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->ip += 1;
     break;
 
+  case INST_GEF:
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    hvm->stack[hvm->stack_size - 2].as_u64 =
+        hvm->stack[hvm->stack_size - 1].as_f64 >=
+        hvm->stack[hvm->stack_size - 2].as_f64;
+    hvm->stack_size -= 1;
+    hvm->ip += 1;
+    break;
+
   case INST_JMP_IF:
     if (hvm->stack_size < 1) {
       return ERR_STACK_UNDERFLOW;
     }
 
     if (hvm->stack[hvm->stack_size - 1].as_u64) {
-      hvm->stack_size -= 1;
       hvm->ip = inst.operand.as_u64;
     } else {
       hvm->ip += 1;
     }
+
+    hvm->stack_size -= 1;
     break;
 
   case INST_PRINT_DEBUG:
     if (hvm->stack_size < 1) {
       return ERR_STACK_UNDERFLOW;
     }
-    printf("%lu\n", hvm->stack[hvm->stack_size - 1].as_u64);
+    fprintf(stdout, "  u64: %" PRIu64 ", i64: %" PRId64 ", f64: %lf, ptr: %p\n",
+            hvm->stack[hvm->stack_size - 1].as_u64,
+            hvm->stack[hvm->stack_size - 1].as_i64,
+            hvm->stack[hvm->stack_size - 1].as_f64,
+            hvm->stack[hvm->stack_size - 1].as_ptr);
     hvm->stack_size -= 1;
     hvm->ip += 1;
     break;
@@ -451,6 +509,30 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->ip += 1;
     break;
 
+  case INST_SWAP:
+    if (inst.operand.as_u64 >= hvm->stack_size) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    const uint64_t a = hvm->stack_size - 1;
+    const uint64_t b = hvm->stack_size - 1 - inst.operand.as_u64;
+
+    Word t = hvm->stack[a];
+    hvm->stack[a] = hvm->stack[b];
+    hvm->stack[b] = t;
+    hvm->ip += 1;
+    break;
+
+  case INST_NOT:
+    if (hvm->stack_size < 1) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    hvm->stack[hvm->stack_size - 1].as_u64 =
+        !hvm->stack[hvm->stack_size - 1].as_u64;
+    hvm->ip += 1;
+    break;
+
   case NUMBER_OF_INSTS:
   default:
     return ERR_ILLEGAL_INST;
@@ -463,7 +545,8 @@ void hvm_dump_stack(FILE *stream, const Hvm *hvm) {
   fprintf(stream, "Stack:\n");
   if (hvm->stack_size > 0) {
     for (Inst_Addr i = 0; i < hvm->stack_size; ++i) {
-      fprintf(stream, "  u64: %lu, i64: %ld, f64: %lf, ptr: %p\n",
+      fprintf(stream,
+              "  u64: %" PRIu64 ", i64: %" PRId64 ", f64: %lf, ptr: %p\n",
               hvm->stack[i].as_u64, hvm->stack[i].as_i64, hvm->stack[i].as_f64,
               hvm->stack[i].as_ptr);
     }
@@ -488,15 +571,15 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
   }
 
   if (fseek(f, 0, SEEK_END) < 0) {
-    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
-            strerror(errno));
+    fprintf(stderr, "ERROR: Could not set position at end of file %s: %s\n",
+            file_path, strerror(errno));
     exit(1);
   }
 
   long m = ftell(f);
   if (m < 0) {
-    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
-            strerror(errno));
+    fprintf(stderr, "ERROR: Could not determine length of file %s: %s\n",
+            file_path, strerror(errno));
     exit(1);
   }
 
@@ -504,7 +587,7 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
   assert((size_t)m <= HVM_PROGRAM_CAPACITY * sizeof(hvm->program[0]));
 
   if (fseek(f, 0, SEEK_SET) < 0) {
-    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
+    fprintf(stderr, "ERROR: Could not rewind file %s: %s\n", file_path,
             strerror(errno));
     exit(1);
   }
@@ -513,7 +596,7 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
                             m / sizeof(hvm->program[0]), f);
 
   if (ferror(f)) {
-    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
+    fprintf(stderr, "ERROR: Could not consume file %s: %s\n", file_path,
             strerror(errno));
     exit(1);
   }
@@ -634,8 +717,8 @@ void basm_push_deferred_operand(Basm *basm, Inst_Addr addr, String_View label) {
 }
 
 Word number_literal_as_word(String_View sv) {
-  assert(sv.count < 1024);
-  char cstr[sv.count + 1];
+  assert(sv.count < NUMBER_LITERAL_CAPACITY);
+  char cstr[NUMBER_LITERAL_CAPACITY + 1];
   char *endptr = 0;
 
   memcpy(cstr, sv.data, sv.count);
@@ -690,6 +773,12 @@ void hvm_translate_source(String_View source, Hvm *hvm, Basm *basm) {
               .type = INST_DUP, .operand = {.as_i64 = sv_to_int(operand)}};
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PLUSI)))) {
           hvm->program[hvm->program_size++] = (Inst){.type = INST_PLUSI};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_MINUSI)))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_MINUSI};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_DIVI)))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_DIVI};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_MULTI)))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_MULTI};
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_JMP)))) {
           if (operand.count > 0 && isdigit(*operand.data)) {
             hvm->program[hvm->program_size++] = (Inst){
@@ -701,12 +790,54 @@ void hvm_translate_source(String_View source, Hvm *hvm, Basm *basm) {
 
             hvm->program[hvm->program_size++] = (Inst){.type = INST_JMP};
           }
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_JMP_IF)))) {
+          if (operand.count > 0 && isdigit(*operand.data)) {
+            hvm->program[hvm->program_size++] = (Inst){
+                .type = INST_JMP_IF,
+                .operand = {.as_i64 = sv_to_int(operand)},
+            };
+          } else {
+            basm_push_deferred_operand(basm, hvm->program_size, operand);
+
+            hvm->program[hvm->program_size++] = (Inst){
+                .type = INST_JMP_IF,
+            };
+          }
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_HALT)))) {
           hvm->program[hvm->program_size++] = (Inst){.type = INST_HALT};
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PLUSF)))) {
           hvm->program[hvm->program_size++] = (Inst){.type = INST_PLUSF};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_MINUSF)))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_MINUSF};
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_DIVF)))) {
           hvm->program[hvm->program_size++] = (Inst){.type = INST_DIVF};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_MULTF)))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_MULTF};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_SWAP)))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_SWAP,
+              .operand = {.as_i64 = sv_to_int(operand)},
+          };
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_EQ)))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_EQ,
+          };
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_GEF)))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_GEF,
+          };
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_NOT)))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_NOT,
+          };
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_DROP)))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_DROP,
+          };
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PRINT_DEBUG)))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_PRINT_DEBUG,
+          };
         } else {
           fprintf(stderr, "ERROR: unknown instruction `%.*s`\n",
                   (int)token.count, token.data);

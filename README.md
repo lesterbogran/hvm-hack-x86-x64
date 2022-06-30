@@ -8,6 +8,8 @@ The hacker Virtual Machine
 $ make
 $ make examples
 $ ./hack -i ./examples/fib.har -l 69
+$ ./hack -i ./examples/e.har
+$ ./hack -i ./examples/pi.har
 ```
 
 ## Components

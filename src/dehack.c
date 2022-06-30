@@ -1,5 +1,6 @@
 #define HVM_IMPLEMENTATION
 #include "./hvm.h"
+#include <inttypes.h>
 
 Hvm hvm = {0};
 
@@ -17,7 +18,7 @@ int main(int argc, char *argv[]) {
   for (Inst_Addr i = 0; i < hvm.program_size; ++i) {
     printf("%s", inst_name(hvm.program[i].type));
     if (inst_has_operand(hvm.program[i].type)) {
-      printf(" %ld", hvm.program[i].operand.as_i64);
+      printf(" %" PRIu64, hvm.program[i].operand.as_i64);
     }
     printf("\n");
   }
