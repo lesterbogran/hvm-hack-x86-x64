@@ -85,8 +85,7 @@ Err hvm_execute_inst(Hvm *hvm);
 void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_memory(Hvm *hvm, Inst *program, size_t program_size);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
-void hvm_save_program_to_file(Inst *program, size_t program_size,
-                              const char *file_path);
+void hvm_save_program_to_file(Hvm *hvm, const char *file_path);
 
 typedef struct {
   size_t count;
@@ -350,8 +349,7 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
   fclose(f);
 }
 
-void hvm_save_program_to_file(Inst *program, size_t program_size,
-                              const char *file_path) {
+void hvm_save_program_to_file(Hvm *hvm, const char *file_path) {
   FILE *f = fopen(file_path, "wb");
   if (f == NULL) {
     fprintf(stderr, "ERROR: Could not open file `%s`: %s\n", file_path,
@@ -359,7 +357,7 @@ void hvm_save_program_to_file(Inst *program, size_t program_size,
     exit(1);
   }
 
-  fwrite(program, sizeof(program[0]), program_size, f);
+  fwrite(hvm->program, sizeof(hvm->program[0]), hvm->program_size, f);
 
   if (ferror(f)) {
     fprintf(stderr, "ERROR: Could not write to file `%s`: %s\n", file_path,

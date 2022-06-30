@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
   hvm.program_size =
       hvm_translate_source(source, hvm.program, HVM_PROGRAM_CAPACITY);
 
-  hvm_save_program_to_file(hvm.program, hvm.program_size, output_file_path);
+  hvm_save_program_to_file(&hvm, output_file_path);
 
   return 0;
 }
