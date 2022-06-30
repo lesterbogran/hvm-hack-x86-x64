@@ -2,9 +2,9 @@
 #include "./hvm.h"
 
 Hvm hvm = {0};
-Label_Table lt = {0};
+Basm basm = {0};
 
-char *shift(int *argc, char ***argv) {
+static char *shift(int *argc, char ***argv) {
   assert(*argc > 0);
   char *result = **argv;
   *argv += 1;
@@ -12,7 +12,7 @@ char *shift(int *argc, char ***argv) {
   return result;
 }
 
-void usage(FILE *stream, const char *program) {
+static void usage(FILE *stream, const char *program) {
   fprintf(stream, "Usage: %s <input.hack> <output.har>\n", program);
 }
 
@@ -35,8 +35,7 @@ int main(int argc, char **argv) {
 
   String_View source = sv_slurp_file(input_file_path);
 
-  hvm_translate_source(source, &hvm, &lt);
-
+  hvm_translate_source(source, &hvm, &basm);
   hvm_save_program_to_file(&hvm, output_file_path);
 
   return 0;

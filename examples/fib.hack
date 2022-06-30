@@ -7,7 +7,7 @@
   push 0
   push 1
 loop:
-  dup 1 # The loop
+  dup 1   # The Loop
   dup 1
-  plus
-  jmp loop # Repeat
+  plusi
+  jmp loop   # Repeat

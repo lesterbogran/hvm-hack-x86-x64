@@ -4,7 +4,7 @@
 # @file
 # @version 0.1
 
-CFLAGS=-Wall -Wextra -Wswitch-enum -std=c11 -pedantic
+CFLAGS=-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -pedantic -std=c11
 LIBS=
 
 .PHONY: all
@@ -21,12 +21,15 @@ dehack: ./src/dehack.c ./src/hvm.h
 
 
 .PHONY: examples
-examples: ./examples/fib.har ./examples/123.har
+examples: ./examples/fib.har ./examples/123f.har ./examples/123i.har
 
 ./examples/fib.har: hackc ./examples/fib.hack
 	./hackc ./examples/fib.hack ./examples/fib.har
 
-./examples/123.har: hackc ./examples/123.hack
-	./hackc ./examples/123.hack ./examples/123.har
+./examples/123f.har: hackc ./examples/123f.hack
+	./hackc ./examples/123f.hack ./examples/123f.har
+
+./examples/123i.har: hackc ./examples/123i.hack
+	./hackc ./examples/123i.hack ./examples/123i.har
 
 # end

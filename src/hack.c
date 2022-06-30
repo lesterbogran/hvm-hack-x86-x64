@@ -3,7 +3,7 @@
 
 Hvm hvm = {0};
 
-char *shift(int *argc, char ***argv) {
+static char *shift(int *argc, char ***argv) {
   assert(*argc > 0);
   char *result = **argv;
   *argv += 1;
@@ -11,8 +11,8 @@ char *shift(int *argc, char ***argv) {
   return result;
 }
 
-void usage(FILE *stream, const char *program) {
-  fprintf(stream, "Usage: %s -i <input.hack> [-l <limit>] [-h]\n", program);
+static void usage(FILE *stream, const char *program) {
+  fprintf(stream, "Usage: %s -i <input.har> [-l <limit>] [-h]\n", program);
 }
 
 int main(int argc, char **argv) {

@@ -1,4 +1,4 @@
-#ifndef HVM_H_
+#ifndef BM_H_
 #define HVM_H_
 
 #include <assert.h>
@@ -13,7 +13,7 @@
 #define HVM_STACK_CAPACITY 1024
 #define HVM_PROGRAM_CAPACITY 1024
 #define LABEL_CAPACITY 1024
-#define UNRESOLVED_JMPS_CAPACITY 1024
+#define DEFERRED_OPERANDS_CAPACITY 1024
 
 typedef enum {
   ERR_OK = 0,
@@ -27,24 +27,42 @@ typedef enum {
 
 const char *err_as_cstr(Err err);
 
-typedef int64_t Word;
-
 typedef enum {
   INST_NOP = 0,
   INST_PUSH,
   INST_DUP,
-  INST_PLUS,
-  INST_MINUS,
-  INST_MULT,
-  INST_DIV,
+  INST_PLUSI,
+  INST_MINUSI,
+  INST_MULTI,
+  INST_DIVI,
+  INST_PLUSF,
+  INST_MINUSF,
+  INST_MULTF,
+  INST_DIVF,
   INST_JMP,
   INST_JMP_IF,
   INST_EQ,
   INST_HALT,
   INST_PRINT_DEBUG,
+  NUMBER_OF_INSTS,
 } Inst_Type;
 
+const char *inst_name(Inst_Type type);
+int inst_has_operand(Inst_Type type);
+
 const char *inst_type_as_cstr(Inst_Type type);
+
+typedef uint64_t Inst_Addr;
+
+typedef union {
+  uint64_t as_u64;
+  int64_t as_i64;
+  double as_f64;
+  void *as_ptr;
+} Word;
+
+// static_assert(sizeof(Word) == 8,
+//               "The HVM's Word is expected to be 64 bits");
 
 typedef struct {
   Inst_Type type;
@@ -53,34 +71,14 @@ typedef struct {
 
 typedef struct {
   Word stack[HVM_STACK_CAPACITY];
-  Word stack_size;
+  uint64_t stack_size;
 
   Inst program[HVM_PROGRAM_CAPACITY];
-  Word program_size;
-  Word ip;
+  uint64_t program_size;
+  Inst_Addr ip;
 
   int halt;
 } Hvm;
-
-// TODO: Replace MAKE_INST_* macros with functions
-// They are not that useful anymore since we can load/save programs to/from
-// files
-#define MAKE_INST_PUSH(value)                                                  \
-  { .type = INST_PUSH, .operand = (value) }
-#define MAKE_INST_PLUS                                                         \
-  { .type = INST_PLUS }
-#define MAKE_INST_MINUS                                                        \
-  { .type = INST_MINUS }
-#define MAKE_INST_MULT                                                         \
-  { .type = INST_MULT }
-#define MAKE_INST_DIV                                                          \
-  { .type = INST_DIV }
-#define MAKE_INST_JMP(addr)                                                    \
-  { .type = INST_JMP, .operand = (addr) }
-#define MAKE_INST_DUP(addr)                                                    \
-  { .type = INST_DUP, .operand = (addr) }
-#define MAKE_INST_HALT                                                         \
-  { .type = INST_HALT, .operand = (addr) }
 
 Err hvm_execute_inst(Hvm *hvm);
 Err hvm_execute_program(Hvm *hvm, int limit);
@@ -105,31 +103,112 @@ String_View sv_slurp_file(const char *file_path);
 
 typedef struct {
   String_View name;
-  Word addr;
+  Inst_Addr addr;
 } Label;
 
 typedef struct {
-  Word addr;
+  Inst_Addr addr;
   String_View label;
-} Unresolved_Jmp;
+} Deferred_Operand;
 
 typedef struct {
   Label labels[LABEL_CAPACITY];
   size_t labels_size;
-  Unresolved_Jmp unresolved_jmps[UNRESOLVED_JMPS_CAPACITY];
-  size_t unresolved_jmps_size;
-} Label_Table;
+  Deferred_Operand deferred_operands[DEFERRED_OPERANDS_CAPACITY];
+  size_t deferred_operands_size;
+} Basm;
 
-Word label_table_find(const Label_Table *lt, String_View name);
-void label_table_push(Label_Table *lt, String_View name, Word addr);
-void label_table_push_unresolved_jmp(Label_Table *lt, Word addr,
-                                     String_View label);
+Inst_Addr basm_find_label_addr(const Basm *basm, String_View name);
+void basm_push_label(Basm *basm, String_View name, Inst_Addr addr);
+void basm_push_deferred_operand(Basm *basm, Inst_Addr addr, String_View label);
 
-void hvm_translate_source(String_View source, Hvm *hvm, Label_Table *lt);
+void hvm_translate_source(String_View source, Hvm *hvm, Basm *basm);
+
+Word number_literal_as_word(String_View sv);
 
 #endif // HVM_H_
 
 #ifdef HVM_IMPLEMENTATION
+
+int inst_has_operand(Inst_Type type) {
+  switch (type) {
+  case INST_NOP:
+    return 0;
+  case INST_PUSH:
+    return 1;
+  case INST_DUP:
+    return 1;
+  case INST_PLUSI:
+    return 0;
+  case INST_MINUSI:
+    return 0;
+  case INST_MULTI:
+    return 0;
+  case INST_DIVI:
+    return 0;
+  case INST_PLUSF:
+    return 0;
+  case INST_MINUSF:
+    return 0;
+  case INST_MULTF:
+    return 0;
+  case INST_DIVF:
+    return 0;
+  case INST_JMP:
+    return 1;
+  case INST_JMP_IF:
+    return 1;
+  case INST_EQ:
+    return 0;
+  case INST_HALT:
+    return 0;
+  case INST_PRINT_DEBUG:
+    return 0;
+  case NUMBER_OF_INSTS:
+  default:
+    assert(0 && "inst_has_operand: unreachable");
+  }
+}
+
+const char *inst_name(Inst_Type type) {
+  switch (type) {
+  case INST_NOP:
+    return "nop";
+  case INST_PUSH:
+    return "push";
+  case INST_DUP:
+    return "dup";
+  case INST_PLUSI:
+    return "plusi";
+  case INST_MINUSI:
+    return "minusi";
+  case INST_MULTI:
+    return "multi";
+  case INST_DIVI:
+    return "divi";
+  case INST_PLUSF:
+    return "plusf";
+  case INST_MINUSF:
+    return "minusf";
+  case INST_MULTF:
+    return "multf";
+  case INST_DIVF:
+    return "divf";
+  case INST_JMP:
+    return "jmp";
+  case INST_JMP_IF:
+    return "jmp_if";
+  case INST_EQ:
+    return "eq";
+  case INST_HALT:
+    return "halt";
+  case INST_PRINT_DEBUG:
+    return "print_debug";
+  case NUMBER_OF_INSTS:
+  default:
+    assert(0 && "inst_name: unreachable");
+  }
+}
 
 const char *err_as_cstr(Err err) {
   switch (err) {
@@ -158,14 +237,22 @@ const char *inst_type_as_cstr(Inst_Type type) {
     return "INST_NOP";
   case INST_PUSH:
     return "INST_PUSH";
-  case INST_PLUS:
-    return "INST_PLUS";
-  case INST_MINUS:
-    return "INST_MINUS";
-  case INST_MULT:
-    return "INST_MULT";
-  case INST_DIV:
-    return "INST_DIV";
+  case INST_PLUSI:
+    return "INST_PLUSI";
+  case INST_MINUSI:
+    return "INST_MINUSI";
+  case INST_MULTI:
+    return "INST_MULTI";
+  case INST_DIVI:
+    return "INST_DIVI";
+  case INST_PLUSF:
+    return "INST_PLUSF";
+  case INST_MINUSF:
+    return "INST_MINUSF";
+  case INST_MULTF:
+    return "INST_MULTF";
+  case INST_DIVF:
+    return "INST_DIVF";
   case INST_JMP:
     return "INST_JMP";
   case INST_HALT:
@@ -178,6 +265,7 @@ const char *inst_type_as_cstr(Inst_Type type) {
     return "INST_PRINT_DEBUG";
   case INST_DUP:
     return "INST_DUP";
+  case NUMBER_OF_INSTS:
   default:
     assert(0 && "inst_type_as_cstr: unreachable");
   }
@@ -198,7 +286,7 @@ Err hvm_execute_program(Hvm *hvm, int limit) {
 }
 
 Err hvm_execute_inst(Hvm *hvm) {
-  if (hvm->ip < 0 || hvm->ip >= hvm->program_size) {
+  if (hvm->ip >= hvm->program_size) {
     return ERR_ILLEGAL_INST_ACCESS;
   }
 
@@ -217,49 +305,97 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->ip += 1;
     break;
 
-  case INST_PLUS:
+  case INST_PLUSI:
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
     }
-    hvm->stack[hvm->stack_size - 2] += hvm->stack[hvm->stack_size - 1];
+    hvm->stack[hvm->stack_size - 2].as_u64 +=
+        hvm->stack[hvm->stack_size - 1].as_u64;
     hvm->stack_size -= 1;
     hvm->ip += 1;
     break;
 
-  case INST_MINUS:
+  case INST_MINUSI:
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
     }
-    hvm->stack[hvm->stack_size - 2] -= hvm->stack[hvm->stack_size - 1];
+    hvm->stack[hvm->stack_size - 2].as_u64 -=
+        hvm->stack[hvm->stack_size - 1].as_u64;
     hvm->stack_size -= 1;
     hvm->ip += 1;
     break;
 
-  case INST_MULT:
+  case INST_MULTI:
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
     }
-    hvm->stack[hvm->stack_size - 2] *= hvm->stack[hvm->stack_size - 1];
+    hvm->stack[hvm->stack_size - 2].as_u64 *=
+        hvm->stack[hvm->stack_size - 1].as_u64;
     hvm->stack_size -= 1;
     hvm->ip += 1;
     break;
 
-  case INST_DIV:
+  case INST_DIVI:
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
     }
 
-    if (hvm->stack[hvm->stack_size - 1] == 0) {
+    if (hvm->stack[hvm->stack_size - 1].as_u64 == 0) {
       return ERR_DIV_BY_ZERO;
     }
 
-    hvm->stack[hvm->stack_size - 2] /= hvm->stack[hvm->stack_size - 1];
+    hvm->stack[hvm->stack_size - 2].as_u64 /=
+        hvm->stack[hvm->stack_size - 1].as_u64;
+    hvm->stack_size -= 1;
+    hvm->ip += 1;
+    break;
+
+  case INST_PLUSF:
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    hvm->stack[hvm->stack_size - 2].as_f64 +=
+        hvm->stack[hvm->stack_size - 1].as_f64;
+    hvm->stack_size -= 1;
+    hvm->ip += 1;
+    break;
+
+  case INST_MINUSF:
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    hvm->stack[hvm->stack_size - 2].as_f64 -=
+        hvm->stack[hvm->stack_size - 1].as_f64;
+    hvm->stack_size -= 1;
+    hvm->ip += 1;
+    break;
+
+  case INST_MULTF:
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    hvm->stack[hvm->stack_size - 2].as_f64 *=
+        hvm->stack[hvm->stack_size - 1].as_f64;
+    hvm->stack_size -= 1;
+    hvm->ip += 1;
+    break;
+
+  case INST_DIVF:
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    hvm->stack[hvm->stack_size - 2].as_f64 /=
+        hvm->stack[hvm->stack_size - 1].as_f64;
     hvm->stack_size -= 1;
     hvm->ip += 1;
     break;
 
   case INST_JMP:
-    hvm->ip = inst.operand;
+    hvm->ip = inst.operand.as_u64;
     break;
 
   case INST_HALT:
@@ -271,8 +407,9 @@ Err hvm_execute_inst(Hvm *hvm) {
       return ERR_STACK_UNDERFLOW;
     }
 
-    hvm->stack[hvm->stack_size - 2] =
-        hvm->stack[hvm->stack_size - 1] == hvm->stack[hvm->stack_size - 2];
+    hvm->stack[hvm->stack_size - 2].as_u64 =
+        hvm->stack[hvm->stack_size - 1].as_u64 ==
+        hvm->stack[hvm->stack_size - 2].as_u64;
     hvm->stack_size -= 1;
     hvm->ip += 1;
     break;
@@ -282,9 +419,9 @@ Err hvm_execute_inst(Hvm *hvm) {
       return ERR_STACK_UNDERFLOW;
     }
 
-    if (hvm->stack[hvm->stack_size - 1]) {
+    if (hvm->stack[hvm->stack_size - 1].as_u64) {
       hvm->stack_size -= 1;
-      hvm->ip = inst.operand;
+      hvm->ip = inst.operand.as_u64;
     } else {
       hvm->ip += 1;
     }
@@ -294,7 +431,7 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (hvm->stack_size < 1) {
       return ERR_STACK_UNDERFLOW;
     }
-    printf("%ld\n", hvm->stack[hvm->stack_size - 1]);
+    printf("%lu\n", hvm->stack[hvm->stack_size - 1].as_u64);
     hvm->stack_size -= 1;
     hvm->ip += 1;
     break;
@@ -304,20 +441,17 @@ Err hvm_execute_inst(Hvm *hvm) {
       return ERR_STACK_OVERFLOW;
     }
 
-    if (hvm->stack_size - inst.operand <= 0) {
+    if (hvm->stack_size - inst.operand.as_u64 <= 0) {
       return ERR_STACK_UNDERFLOW;
     }
 
-    if (inst.operand < 0) {
-      return ERR_ILLEGAL_OPERAND;
-    }
-
     hvm->stack[hvm->stack_size] =
-        hvm->stack[hvm->stack_size - 1 - inst.operand];
+        hvm->stack[hvm->stack_size - 1 - inst.operand.as_u64];
     hvm->stack_size += 1;
     hvm->ip += 1;
     break;
 
+  case NUMBER_OF_INSTS:
   default:
     return ERR_ILLEGAL_INST;
   }
@@ -328,8 +462,10 @@ Err hvm_execute_inst(Hvm *hvm) {
 void hvm_dump_stack(FILE *stream, const Hvm *hvm) {
   fprintf(stream, "Stack:\n");
   if (hvm->stack_size > 0) {
-    for (Word i = 0; i < hvm->stack_size; ++i) {
-      fprintf(stream, "  %ld\n", hvm->stack[i]);
+    for (Inst_Addr i = 0; i < hvm->stack_size; ++i) {
+      fprintf(stream, "  u64: %lu, i64: %ld, f64: %lf, ptr: %p\n",
+              hvm->stack[i].as_u64, hvm->stack[i].as_i64, hvm->stack[i].as_f64,
+              hvm->stack[i].as_ptr);
     }
   } else {
     fprintf(stream, "  [empty]\n");
@@ -474,10 +610,10 @@ int sv_to_int(String_View sv) {
   return result;
 }
 
-Word label_table_find(const Label_Table *lt, String_View name) {
-  for (size_t i = 0; i < lt->labels_size; ++i) {
-    if (sv_eq(lt->labels[i].name, name)) {
-      return lt->labels[i].addr;
+Inst_Addr basm_find_label_addr(const Basm *basm, String_View name) {
+  for (size_t i = 0; i < basm->labels_size; ++i) {
+    if (sv_eq(basm->labels[i].name, name)) {
+      return basm->labels[i].addr;
     }
   }
 
@@ -486,19 +622,40 @@ Word label_table_find(const Label_Table *lt, String_View name) {
   exit(1);
 }
 
-void label_table_push(Label_Table *lt, String_View name, Word addr) {
-  assert(lt->labels_size < LABEL_CAPACITY);
-  lt->labels[lt->labels_size++] = (Label){.name = name, .addr = addr};
+void basm_push_label(Basm *basm, String_View name, Inst_Addr addr) {
+  assert(basm->labels_size < LABEL_CAPACITY);
+  basm->labels[basm->labels_size++] = (Label){.name = name, .addr = addr};
 }
 
-void label_table_push_unresolved_jmp(Label_Table *lt, Word addr,
-                                     String_View label) {
-  assert(lt->unresolved_jmps_size < UNRESOLVED_JMPS_CAPACITY);
-  lt->unresolved_jmps[lt->unresolved_jmps_size++] =
-      (Unresolved_Jmp){.addr = addr, .label = label};
+void basm_push_deferred_operand(Basm *basm, Inst_Addr addr, String_View label) {
+  assert(basm->deferred_operands_size < DEFERRED_OPERANDS_CAPACITY);
+  basm->deferred_operands[basm->deferred_operands_size++] =
+      (Deferred_Operand){.addr = addr, .label = label};
 }
 
-void hvm_translate_source(String_View source, Hvm *hvm, Label_Table *lt) {
+Word number_literal_as_word(String_View sv) {
+  assert(sv.count < 1024);
+  char cstr[sv.count + 1];
+  char *endptr = 0;
+
+  memcpy(cstr, sv.data, sv.count);
+  cstr[sv.count] = '\0';
+
+  Word result = {0};
+
+  result.as_u64 = strtoull(cstr, &endptr, 10);
+  if ((size_t)(endptr - cstr) != sv.count) {
+    result.as_f64 = strtod(cstr, &endptr);
+    if ((size_t)(endptr - cstr) != sv.count) {
+      fprintf(stderr, "ERROR: `%s` is not a number literal\n", cstr);
+      exit(1);
+    }
+  }
+
+  return result;
+}
+
+void hvm_translate_source(String_View source, Hvm *hvm, Basm *basm) {
   hvm->program_size = 0;
 
   // First pass
@@ -506,46 +663,53 @@ void hvm_translate_source(String_View source, Hvm *hvm, Label_Table *lt) {
     assert(hvm->program_size < HVM_PROGRAM_CAPACITY);
     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
     if (line.count > 0 && *line.data != '#') {
-      String_View inst_name = sv_chop_by_delim(&line, ' ');
+      String_View token = sv_chop_by_delim(&line, ' ');
 
-      if (inst_name.count > 0 && inst_name.data[inst_name.count - 1] == ':') {
-        String_View label = {.count = inst_name.count - 1,
-                             .data = inst_name.data};
+      if (token.count > 0 && token.data[token.count - 1] == ':') {
+        String_View label = {.count = token.count - 1, .data = token.data};
 
-        label_table_push(lt, label, hvm->program_size);
+        basm_push_label(basm, label, hvm->program_size);
 
-        inst_name = sv_trim(sv_chop_by_delim(&line, ' '));
+        token = sv_trim(sv_chop_by_delim(&line, ' '));
       }
 
-      if (inst_name.count > 0) {
+      if (token.count > 0) {
         String_View operand = sv_trim(sv_chop_by_delim(&line, '#'));
 
-        if (sv_eq(inst_name, cstr_as_sv("nop"))) {
+        if (sv_eq(token, cstr_as_sv(inst_name(INST_NOP)))) {
           hvm->program[hvm->program_size++] = (Inst){
               .type = INST_NOP,
           };
-        } else if (sv_eq(inst_name, cstr_as_sv("push"))) {
-          hvm->program[hvm->program_size++] =
-              (Inst){.type = INST_PUSH, .operand = sv_to_int(operand)};
-        } else if (sv_eq(inst_name, cstr_as_sv("dup"))) {
-          hvm->program[hvm->program_size++] =
-              (Inst){.type = INST_DUP, .operand = sv_to_int(operand)};
-        } else if (sv_eq(inst_name, cstr_as_sv("plus"))) {
-          hvm->program[hvm->program_size++] = (Inst){.type = INST_PLUS};
-        } else if (sv_eq(inst_name, cstr_as_sv("jmp"))) {
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PUSH)))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_PUSH,
+              .operand = number_literal_as_word(operand),
+          };
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_DUP)))) {
+          hvm->program[hvm->program_size++] = (Inst){
+              .type = INST_DUP, .operand = {.as_i64 = sv_to_int(operand)}};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PLUSI)))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_PLUSI};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_JMP)))) {
           if (operand.count > 0 && isdigit(*operand.data)) {
             hvm->program[hvm->program_size++] = (Inst){
                 .type = INST_JMP,
-                .operand = sv_to_int(operand),
+                .operand = {.as_i64 = sv_to_int(operand)},
             };
           } else {
-            label_table_push_unresolved_jmp(lt, hvm->program_size, operand);
+            basm_push_deferred_operand(basm, hvm->program_size, operand);
 
             hvm->program[hvm->program_size++] = (Inst){.type = INST_JMP};
           }
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_HALT)))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_HALT};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PLUSF)))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_PLUSF};
+        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_DIVF)))) {
+          hvm->program[hvm->program_size++] = (Inst){.type = INST_DIVF};
         } else {
           fprintf(stderr, "ERROR: unknown instruction `%.*s`\n",
-                  (int)inst_name.count, inst_name.data);
+                  (int)token.count, token.data);
           exit(1);
         }
       }
@@ -553,9 +717,10 @@ void hvm_translate_source(String_View source, Hvm *hvm, Label_Table *lt) {
   }
 
   // Second pass
-  for (size_t i = 0; i < lt->unresolved_jmps_size; ++i) {
-    Word addr = label_table_find(lt, lt->unresolved_jmps[i].label);
-    hvm->program[lt->unresolved_jmps[i].addr].operand = addr;
+  for (size_t i = 0; i < basm->deferred_operands_size; ++i) {
+    Inst_Addr addr =
+        basm_find_label_addr(basm, basm->deferred_operands[i].label);
+    hvm->program[basm->deferred_operands[i].addr].operand.as_u64 = addr;
   }
 }
 
