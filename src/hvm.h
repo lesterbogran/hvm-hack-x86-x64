@@ -412,7 +412,7 @@ Err hvm_execute_inst(Hvm *hvm) {
       return ERR_STACK_OVERFLOW;
     }
 
-    hvm->stack[hvm->stack_size++].as_u64 = hvm->ip;
+    hvm->stack[hvm->stack_size++].as_u64 = hvm->ip + 1;
     hvm->ip = inst.operand.as_u64;
     break;
 

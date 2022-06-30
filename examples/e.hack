@@ -4,34 +4,34 @@
 
 # sum(1/n!)
 # 1/1 + 1/1 + 1/(1 * 2) + 1/(1 * 2 * 3) + ...
-  push 1.0       # n
-  push 1.0       # n!
-  push 1.0       # sum
+    push 1.0       # n
+    push 1.0       # n!
+    push 1.0       # sum
 loop:
-  push 1.0
-  dup 2
-  divf
-  plusf
+    push 1.0
+    dup 2
+    divf
+    plusf
 
-  swap 2
-  push 1.0
-  plusf
-  dup 0
-  swap 2
-  multf
+    swap 2
+    push 1.0
+    plusf
+    dup 0
+    swap 2
+    multf
 
-  swap 1
-  swap 2
+    swap 1
+    swap 2
 
-  dup 2
-  push 100.0
-  gef
+    dup 2
+    push 100.0
+    gef
 
-  jmp_if loop
+    jmp_if loop
 
-  swap 1
-  drop
-  swap 1
-  drop
+    swap 1
+    drop
+    swap 1
+    drop
 
-  halt
+    halt

@@ -11,41 +11,41 @@ push 3.0        # denominator
 push 750000     # counter
 
 loop:
-  swap 2      # swap counter (top of stack) with current acc
+    swap 2      # swap counter (top of stack) with current acc
 
-  # calculate next denominator
+    # calculate next denominator
 
-  push 4.0
-  dup 2
-  push 2.0
-  plusf
-  swap 3
+    push 4.0
+    dup 2
+    push 2.0
+    plusf
+    swap 3
 
-  # calculate with current denominator
+    # calculate with current denominator
 
-  divf        #        (4/n)
-  minusf      # acc - ^
+    divf        #        (4/n)
+    minusf      # acc - ^
 
-  # calculate next denominator
+    # calculate next denominator
 
-  push 4.0
-  dup 2
-  push 2.0
-  plusf
-  swap 3
+    push 4.0
+    dup 2
+    push 2.0
+    plusf
+    swap 3
 
-  # calculate with current denominator
+    # calculate with current denominator
 
-  divf        #        (4/n)
-  plusf       # acc + ^
+    divf        #        (4/n)
+    plusf       # acc + ^
 
-  # decrement counter
-  swap 2
-  push 1
-  minusi
+    # decrement counter
+    swap 2
+    push 1
+    minusi
 
-  dup 0       # duplicate current counter since jmp_if consumes top of stack
-  jmp_if loop
+    dup 0       # duplicate current counter since jmp_if consumes top of stack
+    jmp_if loop
 
 # clean the stack and only have pi left
 drop
