@@ -12,7 +12,6 @@
 #define ARRAY_SIZE(xs) (sizeof(xs) / sizeof((xs)[0]))
 #define HVM_STACK_CAPACITY 1024
 #define HVM_PROGRAM_CAPACITY 1024
-#define HVM_EXECUTION_LIMIT 69
 
 typedef enum {
   ERR_OK = 0,
@@ -82,6 +81,7 @@ typedef struct {
   { .type = INST_HALT, .operand = (addr) }
 
 Err hvm_execute_inst(Hvm *hvm);
+Err hvm_execute_program(Hvm *hvm, int limit);
 void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_memory(Hvm *hvm, Inst *program, size_t program_size);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
@@ -159,6 +159,20 @@ const char *inst_type_as_cstr(Inst_Type type) {
   default:
     assert(0 && "inst_type_as_cstr: unreachable");
   }
+}
+
+Err hvm_execute_program(Hvm *hvm, int limit) {
+  while (limit != 0 && !hvm->halt) {
+    Err err = hvm_execute_inst(hvm);
+    if (err != ERR_OK) {
+      return err;
+    }
+    if (limit > 0) {
+      --limit;
+    }
+  }
+
+  return ERR_OK;
 }
 
 Err hvm_execute_inst(Hvm *hvm) {
