@@ -8,13 +8,16 @@ CFLAGS=-Wall -Wextra -Wswitch-enum -std=c11 -pedantic
 LIBS=
 
 .PHONY: all
-all: hackc hack
+all: hackc hack dehack
 
 hackc: ./src/hackc.c ./src/hvm.h
 	$(CC) $(CFLAGS) -o hackc ./src/hackc.c $(LIBS)
 
 hack: ./src/hack.c ./src/hvm.h
 	$(CC) $(CFLAGS) -o hack ./src/hack.c $(LIBS)
+
+dehack: ./src/dehack.c ./src/hvm.h
+	$(CC) $(CFLAGS) -o dehack ./src/dehack.c $(LIBS)
 
 
 .PHONY: examples
