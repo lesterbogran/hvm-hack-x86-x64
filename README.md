@@ -5,7 +5,7 @@ The hacker Virtual Machine
 ## Quick Start
 
 ```console
-$ ./build.sh        # or ./build_msvc.bat if you are on Windows
+$ ./build.sh        # or `./build_msvc.bat examples` if you are on Windows
 $ ./hack -i ./examples/fib.har
 $ ./hack -i ./examples/e.har
 $ ./hack -i ./examples/pi.har
