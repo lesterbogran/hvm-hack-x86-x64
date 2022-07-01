@@ -451,6 +451,7 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->ip += 1;
     break;
 
+  // TODO(#7): inconsistency between gef and minus* instructions
   case INST_GEF:
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
