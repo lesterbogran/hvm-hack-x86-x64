@@ -6,12 +6,20 @@
 
 CFLAGS=-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -pedantic -std=c11
 LIBS=
+RM?=rm -f
 
-EXAMPLES_SRC=$(wildcard examples/*.hack)
-EXAMPLES=$(EXAMPLES_SRC:.hack=.har)
+EXAMPLES!=find examples/ -name \*.hack | sed "s/\.hack/\.har/"
+BINARIES=hackc \
+		 hack  \
+		 dehack
+
+.SUFFIXES: .hack .har
+
+.hack.har:
+	./hackc $< $@
 
 .PHONY: all
-all: hackc hack dehack
+all: ${BINARIES}
 
 hackc: ./src/hackc.c ./src/hvm.h
 	$(CC) $(CFLAGS) -o hackc ./src/hackc.c $(LIBS)
@@ -23,9 +31,11 @@ dehack: ./src/dehack.c ./src/hvm.h
 	$(CC) $(CFLAGS) -o dehack ./src/dehack.c $(LIBS)
 
 .PHONY: examples
-examples: $(EXAMPLES)
+examples: hackc ${EXAMPLES}
 
-%.har: %.hack hackc
-	./hackc $< $@
+.PHONY: clean
+clean:
+	${RM} ${EXAMPLES}
+	${RM} ${BINARIES}
 
 # end
