@@ -777,6 +777,14 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
           hvm->program[hvm->program_size].type = inst_type;
 
           if (inst_has_operand(inst_type)) {
+            if (operand.count == 0) {
+              fprintf(stderr,
+                      "%s:%d: ERROR: instruction `%.*s` requires an operand\n",
+                      input_file_path, line_number, (int)token.count,
+                      token.data);
+              exit(1);
+            }
+
             if (!number_literal_as_word(
                     operand, &hvm->program[hvm->program_size].operand)) {
               hack_push_deferred_operand(hack, hvm->program_size, operand);
