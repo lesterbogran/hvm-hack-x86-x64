@@ -28,18 +28,21 @@ main:
     push 420.0
     push 0.0
     call lerpf
+    native 2
     # 69.0
 
     push 69.0
     push 420.0
     push 1.0
     call lerpf
+    native 2
     # 420.0
 
     push 69.0
     push 420.0
     push 0.5
     call lerpf
+    native 2
     # 244.5
 
     halt

@@ -1,3 +1,7 @@
+# TODO: rewrite fib.hack example
+# - Limit amount of iterations
+# - Print the generated numbers on each iteration
+# ---
 # Some nonsense to test label resolution
     jmp 1
     nop
