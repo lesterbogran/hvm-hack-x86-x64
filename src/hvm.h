@@ -53,7 +53,6 @@ typedef enum {
   INST_HALT,
   INST_NOT,
   INST_GEF,
-  INST_PRINT_DEBUG,
   NUMBER_OF_INSTS,
 } Inst_Type;
 
@@ -179,8 +178,6 @@ int inst_has_operand(Inst_Type type) {
     return 0;
   case INST_HALT:
     return 0;
-  case INST_PRINT_DEBUG:
-    return 0;
   case INST_SWAP:
     return 1;
   case INST_NOT:
@@ -234,8 +231,6 @@ const char *inst_name(Inst_Type type) {
     return "eq";
   case INST_HALT:
     return "halt";
-  case INST_PRINT_DEBUG:
-    return "print_debug";
   case INST_SWAP:
     return "swap";
   case INST_NOT:
@@ -478,19 +473,6 @@ Err hvm_execute_inst(Hvm *hvm) {
     }
 
     hvm->stack_size -= 1;
-    break;
-
-  case INST_PRINT_DEBUG:
-    if (hvm->stack_size < 1) {
-      return ERR_STACK_UNDERFLOW;
-    }
-    fprintf(stdout, "  u64: %" PRIu64 ", i64: %" PRId64 ", f64: %lf, ptr: %p\n",
-            hvm->stack[hvm->stack_size - 1].as_u64,
-            hvm->stack[hvm->stack_size - 1].as_i64,
-            hvm->stack[hvm->stack_size - 1].as_f64,
-            hvm->stack[hvm->stack_size - 1].as_ptr);
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
     break;
 
   case INST_DUP:
@@ -850,10 +832,6 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack) {
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_DROP)))) {
           hvm->program[hvm->program_size++] = (Inst){
               .type = INST_DROP,
-          };
-        } else if (sv_eq(token, cstr_as_sv(inst_name(INST_PRINT_DEBUG)))) {
-          hvm->program[hvm->program_size++] = (Inst){
-              .type = INST_PRINT_DEBUG,
           };
         } else if (sv_eq(token, cstr_as_sv(inst_name(INST_RET)))) {
           hvm->program[hvm->program_size++] = (Inst){
