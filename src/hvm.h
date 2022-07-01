@@ -739,6 +739,7 @@ int number_literal_as_word(String_View sv, Word *output) {
   if ((size_t)(endptr - cstr) != sv.count) {
     result.as_f64 = strtod(cstr, &endptr);
     if ((size_t)(endptr - cstr) != sv.count) {
+      // TODO(#9): invalid literal hack error does not print its location
       return 0;
     }
   }
