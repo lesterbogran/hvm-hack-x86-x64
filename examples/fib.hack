@@ -1,4 +1,4 @@
-# TODO: rewrite fib.hack example
+# TODO(#1): rewrite fib.hack example
 # - Limit amount of iterations
 # - Print the generated numbers on each iteration
 # ---
