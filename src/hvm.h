@@ -862,7 +862,7 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
     if (!hack_resolve_label(
             hack, label,
             &hvm->program[hack->deferred_operands[i].addr].operand)) {
-      // TODO: second pass label resolution errors don't report the location in
+      // TODO(#15): second pass label resolution errors don't report the location in
       // the source code
       fprintf(stderr, "%s: ERROR: unknown label `%.*s`\n", input_file_path,
               (int)label.count, label.data);
