@@ -6,7 +6,7 @@
 # subsequent odd number. The more times you do this, the closer you will get to pi.
 #
 
-# TODO: extern native functions declarations for hack files
+# TODO(#2): extern native functions declarations for hack files
 # ---
 # extern alloc     0
 # extern free      1
