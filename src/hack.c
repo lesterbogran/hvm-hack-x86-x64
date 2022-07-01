@@ -46,6 +46,36 @@ static Err hvm_print_f64(Hvm *hvm) {
   return ERR_OK;
 }
 
+static Err hvm_print_i64(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  printf("%" PRId64 "\n", hvm->stack[hvm->stack_size - 1].as_i64);
+  hvm->stack_size -= 1;
+  return ERR_OK;
+}
+
+static Err hvm_print_u64(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  printf("%" PRIu64 "\n", hvm->stack[hvm->stack_size - 1].as_u64);
+  hvm->stack_size -= 1;
+  return ERR_OK;
+}
+
+static Err hvm_print_ptr(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  printf("%p\n", hvm->stack[hvm->stack_size - 1].as_ptr);
+  hvm->stack_size -= 1;
+  return ERR_OK;
+}
+
 int main(int argc, char **argv) {
   const char *program = shift(&argc, &argv);
   const char *input_file_path = NULL;
@@ -94,6 +124,9 @@ int main(int argc, char **argv) {
   hvm_push_native(&hvm, hvm_alloc);     // 0
   hvm_push_native(&hvm, hvm_free);      // 1
   hvm_push_native(&hvm, hvm_print_f64); // 2
+  hvm_push_native(&hvm, hvm_print_i64); // 3
+  hvm_push_native(&hvm, hvm_print_u64); // 4
+  hvm_push_native(&hvm, hvm_print_ptr); // 5
 
   if (!debug) {
     Err err = hvm_execute_program(&hvm, limit);
