@@ -120,7 +120,7 @@ int main(int argc, char **argv) {
   }
 
   hvm_load_program_from_file(&hvm, input_file_path);
-  // TODO: some sort of mechanism to load native functions from DLLs
+  // TODO(#3): some sort of mechanism to load native functions from DLLs
   hvm_push_native(&hvm, hvm_alloc);     // 0
   hvm_push_native(&hvm, hvm_free);      // 1
   hvm_push_native(&hvm, hvm_print_f64); // 2
