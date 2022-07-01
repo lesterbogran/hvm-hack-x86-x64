@@ -96,7 +96,8 @@ int main(int argc, char **argv) {
   } else {
     while (limit != 0 && !hvm.halt) {
       hvm_dump_stack(stdout, &hvm);
-      printf("%s %" PRIu64 "\n", inst_name(hvm.program[hvm.ip].type),
+      printf("Instruction: %s %" PRIu64 "\n",
+             inst_name(hvm.program[hvm.ip].type),
              hvm.program[hvm.ip].operand.as_u64);
       getchar();
 
