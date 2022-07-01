@@ -715,7 +715,7 @@ Inst_Addr hack_find_label_addr(const Hack *hack, String_View name) {
   exit(1);
 }
 
-// TODO: label should refer to Word instead of Inst_Addr
+// TODO(#10): label should refer to Word instead of Inst_Addr
 void hack_push_label(Hack *hack, String_View name, Inst_Addr addr) {
   assert(hack->labels_size < LABEL_CAPACITY);
   hack->labels[hack->labels_size++] = (Label){.name = name, .addr = addr};
