@@ -19,6 +19,7 @@
 #define NUMBER_LITERAL_CAPACITY 1024
 
 #define HACK_COMMENT_SYMBOL ';'
+#define HACK_PP_SYMBOL '%'
 
 typedef struct {
   size_t count;
@@ -714,6 +715,7 @@ Inst_Addr hack_find_label_addr(const Hack *hack, String_View name) {
   exit(1);
 }
 
+// TODO: label should refer to Word instead of Inst_Addr
 void hack_push_label(Hack *hack, String_View name, Inst_Addr addr) {
   assert(hack->labels_size < LABEL_CAPACITY);
   hack->labels[hack->labels_size++] = (Label){.name = name, .addr = addr};
@@ -758,44 +760,81 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
     line_number += 1;
     if (line.count > 0 && *line.data != HACK_COMMENT_SYMBOL) {
-      String_View token = sv_chop_by_delim(&line, ' ');
+      String_View token = sv_trim(sv_chop_by_delim(&line, ' '));
 
-      if (token.count > 0 && token.data[token.count - 1] == ':') {
-        String_View label = {.count = token.count - 1, .data = token.data};
-
-        hack_push_label(hack, label, hvm->program_size);
-
-        token = sv_trim(sv_chop_by_delim(&line, ' '));
-      }
-
-      if (token.count > 0) {
-        String_View operand =
-            sv_trim(sv_chop_by_delim(&line, HACK_COMMENT_SYMBOL));
-
-        Inst_Type inst_type = INST_NOP;
-        if (inst_by_name(token, &inst_type)) {
-          hvm->program[hvm->program_size].type = inst_type;
-
-          if (inst_has_operand(inst_type)) {
-            if (operand.count == 0) {
-              fprintf(stderr,
-                      "%s:%d: ERROR: instruction `%.*s` requires an operand\n",
-                      input_file_path, line_number, (int)token.count,
-                      token.data);
+      // Pre-processor
+      if (token.count > 0 && *token.data == HACK_PP_SYMBOL) {
+        token.count -= 1;
+        token.data += 1;
+        if (sv_eq(token, cstr_as_sv("label"))) {
+          token = sv_trim(token);
+          String_View label = sv_chop_by_delim(&line, ' ');
+          if (label.count > 0) {
+            token = sv_trim(token);
+            String_View value = sv_chop_by_delim(&line, ' ');
+            Word word = {0};
+            if (!number_literal_as_word(value, &word)) {
+              fprintf(stderr, "%s:%d: ERROR: `%.*s` is not a number\n",
+                      input_file_path, line_number, (int)value.count,
+                      value.data);
               exit(1);
             }
 
-            if (!number_literal_as_word(
-                    operand, &hvm->program[hvm->program_size].operand)) {
-              hack_push_deferred_operand(hack, hvm->program_size, operand);
-            }
-          }
+            // TODO: hack does not fail when you redefine a label
 
-          hvm->program_size += 1;
+            hack_push_label(hack, label, word.as_u64);
+          } else {
+            fprintf(stderr, "%s:%d: ERROR: label name is not provided\n",
+                    input_file_path, line_number);
+            exit(1);
+          }
         } else {
-          fprintf(stderr, "%s:%d: ERROR: unknown instruction `%.*s`\n",
+          fprintf(stderr,
+                  "%s:%d: ERROR: unknown pre-processor directive `%.*s`\n",
                   input_file_path, line_number, (int)token.count, token.data);
           exit(1);
+        }
+      } else {
+
+        // Label
+        if (token.count > 0 && token.data[token.count - 1] == ':') {
+          String_View label = {.count = token.count - 1, .data = token.data};
+
+          hack_push_label(hack, label, hvm->program_size);
+
+          token = sv_trim(sv_chop_by_delim(&line, ' '));
+        }
+
+        // Instruction
+        if (token.count > 0) {
+          String_View operand =
+              sv_trim(sv_chop_by_delim(&line, HACK_COMMENT_SYMBOL));
+
+          Inst_Type inst_type = INST_NOP;
+          if (inst_by_name(token, &inst_type)) {
+            hvm->program[hvm->program_size].type = inst_type;
+
+            if (inst_has_operand(inst_type)) {
+              if (operand.count == 0) {
+                fprintf(
+                    stderr,
+                    "%s:%d: ERROR: instruction `%.*s` requires an operand\n",
+                    input_file_path, line_number, (int)token.count, token.data);
+                exit(1);
+              }
+
+              if (!number_literal_as_word(
+                      operand, &hvm->program[hvm->program_size].operand)) {
+                hack_push_deferred_operand(hack, hvm->program_size, operand);
+              }
+            }
+
+            hvm->program_size += 1;
+          } else {
+            fprintf(stderr, "%s:%d: ERROR: unknown instruction `%.*s`\n",
+                    input_file_path, line_number, (int)token.count, token.data);
+            exit(1);
+          }
         }
       }
     }

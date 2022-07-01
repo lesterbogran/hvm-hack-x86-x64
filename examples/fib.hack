@@ -1,11 +1,17 @@
+%label N         30
+%label print_u64 4
+
+; N-1
+; F_1+F_0
+; F_1
 main:
     push 0      ; F_0
     push 1      ; F_1
-    push 30     ; N - the amount of iterations
+    push N      ; N - the amount of iterations
 loop:
     swap 2
     dup 0
-    native 4
+    native print_u64
     dup 1
     plusi
     swap 1
@@ -18,5 +24,5 @@ loop:
     eq
     not
 
-    jmp_if loop        ; Repeat
+    jmp_if loop
     halt
