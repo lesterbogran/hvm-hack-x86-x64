@@ -18,6 +18,8 @@
 #define DEFERRED_OPERANDS_CAPACITY 1024
 #define NUMBER_LITERAL_CAPACITY 1024
 
+#define HACK_COMMENT_SYMBOL ';'
+
 typedef enum {
   ERR_OK = 0,
   ERR_STACK_OVERFLOW,
@@ -745,7 +747,7 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
     assert(hvm->program_size < HVM_PROGRAM_CAPACITY);
     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
     line_number += 1;
-    if (line.count > 0 && *line.data != '#') {
+    if (line.count > 0 && *line.data != HACK_COMMENT_SYMBOL) {
       String_View token = sv_chop_by_delim(&line, ' ');
 
       if (token.count > 0 && token.data[token.count - 1] == ':') {
@@ -757,7 +759,8 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
       }
 
       if (token.count > 0) {
-        String_View operand = sv_trim(sv_chop_by_delim(&line, '#'));
+        String_View operand =
+            sv_trim(sv_chop_by_delim(&line, HACK_COMMENT_SYMBOL));
 
         if (sv_eq(token, cstr_as_sv(inst_name(INST_NOP)))) {
           hvm->program[hvm->program_size++] = (Inst){

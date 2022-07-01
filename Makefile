@@ -8,7 +8,7 @@ CFLAGS=-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -pedantic -std=c11
 LIBS=
 RM?=rm -f
 
-EXAMPLES!=find examples/ -name \*.hack | sed "s/\.hack/\.har/"
+EXAMPLES!=find examples/ -name \*.hack ! -name stdlib.hack | sed "s/\.hack/\.har/"
 BINARIES=hackc \
 		 hack  \
 		 dehack

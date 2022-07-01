@@ -1,7 +1,7 @@
 main:
-    push 0      # F_0
-    push 1      # F_1
-    push 30     # N - the amount of iterations
+    push 0      ; F_0
+    push 1      ; F_1
+    push 30     ; N - the amount of iterations
 loop:
     swap 2
     dup 0
@@ -18,5 +18,5 @@ loop:
     eq
     not
 
-    jmp_if loop        # Repeat
+    jmp_if loop        ; Repeat
     halt
