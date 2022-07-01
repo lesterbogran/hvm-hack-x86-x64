@@ -780,7 +780,7 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
               exit(1);
             }
 
-            // TODO: hack does not fail when you redefine a label
+            // TODO(#13): hack does not fail when you redefine a label
 
             hack_push_label(hack, label, word.as_u64);
           } else {
