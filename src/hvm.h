@@ -715,7 +715,7 @@ Inst_Addr hack_find_label_addr(const Hack *hack, String_View name) {
   exit(1);
 }
 
-// TODO(#10): label should refer to Word instead of Inst_Addr
+// TODO(#12): label should refer to Word instead of Inst_Addr
 void hack_push_label(Hack *hack, String_View name, Inst_Addr addr) {
   assert(hack->labels_size < LABEL_CAPACITY);
   hack->labels[hack->labels_size++] = (Label){.name = name, .addr = addr};
@@ -780,7 +780,7 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
               exit(1);
             }
 
-            // TODO(#11): hack does not fail when you redefine a label
+            // TODO: hack does not fail when you redefine a label
 
             hack_push_label(hack, label, word.as_u64);
           } else {
