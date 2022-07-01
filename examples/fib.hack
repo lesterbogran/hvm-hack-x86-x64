@@ -1,11 +1,15 @@
+#include "./natives.h.hack"
+
+#define N 30
+
 main:
     push 0      ; F_0
     push 1      ; F_1
-    push 30     ; N - the amount of iterations
+    push N      ; N - the amount of iterations
 loop:
     swap 2
     dup 0
-    native 4
+    native print_u64
     dup 1
     plusi
     swap 1

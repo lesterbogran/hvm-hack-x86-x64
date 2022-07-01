@@ -12,5 +12,7 @@ LIBS=''
     $CC $CFLAGS -o dehack ./src/dehack.c $LIBS)
 
 for example in `find examples/ -name *.hack ! -name *.h.hack | sed "s/.hack//"`; do
-    (set -x; ./hackc $example.hack $example.har)
+    cpp -P $example.hack > $example.hack.pp
+    (set -x; ./hackc $example.hack.pp $example.har)
+    rm -r $example.hack.pp
 done
