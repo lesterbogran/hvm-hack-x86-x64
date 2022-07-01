@@ -34,4 +34,6 @@ loop:
     swap 1
     drop
 
+    native 2
+
     halt

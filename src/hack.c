@@ -23,7 +23,6 @@ static Err hvm_alloc(Hvm *hvm) {
 
   hvm->stack[hvm->stack_size - 1].as_ptr =
       malloc(hvm->stack[hvm->stack_size - 1].as_u64);
-
   return ERR_OK;
 }
 
@@ -34,7 +33,16 @@ static Err hvm_free(Hvm *hvm) {
 
   free(hvm->stack[hvm->stack_size - 1].as_ptr);
   hvm->stack_size -= 1;
+  return ERR_OK;
+}
 
+static Err hvm_print_f64(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  printf("%lf\n", hvm->stack[hvm->stack_size - 1].as_f64);
+  hvm->stack_size -= 1;
   return ERR_OK;
 }
 
@@ -82,12 +90,13 @@ int main(int argc, char **argv) {
   }
 
   hvm_load_program_from_file(&hvm, input_file_path);
-  hvm_push_native(&hvm, hvm_alloc);
-  hvm_push_native(&hvm, hvm_free);
+  // TODO: some sort of mechanism to load native functions from DLLs
+  hvm_push_native(&hvm, hvm_alloc);     // 0
+  hvm_push_native(&hvm, hvm_free);      // 1
+  hvm_push_native(&hvm, hvm_print_f64); // 2
 
   if (!debug) {
     Err err = hvm_execute_program(&hvm, limit);
-    hvm_dump_stack(stdout, &hvm);
 
     if (err != ERR_OK) {
       fprintf(stderr, "ERROR: %s\n", err_as_cstr(err));
