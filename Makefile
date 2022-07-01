@@ -7,7 +7,8 @@
 CFLAGS=-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -pedantic -std=c11
 LIBS=
 
-EXAMPLES=./examples/fib.har ./examples/123f.har ./examples/123i.har ./examples/e.har ./examples/pi.har ./examples/lerp.har
+EXAMPLES_SRC=$(wildcard examples/*.hack)
+EXAMPLES=$(EXAMPLES_SRC:.hack=.har)
 
 .PHONY: all
 all: hackc hack dehack

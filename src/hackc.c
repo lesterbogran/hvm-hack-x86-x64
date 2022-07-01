@@ -2,7 +2,7 @@
 #include "./hvm.h"
 
 Hvm hvm = {0};
-Basm basm = {0};
+Hack hack = {0};
 
 static char *shift(int *argc, char ***argv) {
   assert(*argc > 0);
@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
 
   String_View source = sv_slurp_file(input_file_path);
 
-  hvm_translate_source(source, &hvm, &basm);
+  hvm_translate_source(source, &hvm, &hack);
   hvm_save_program_to_file(&hvm, output_file_path);
 
   return 0;

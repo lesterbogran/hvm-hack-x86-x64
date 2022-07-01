@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #define HVM_IMPLEMENTATION
 #include "./hvm.h"
 
@@ -13,6 +14,28 @@ static char *shift(int *argc, char ***argv) {
 
 static void usage(FILE *stream, const char *program) {
   fprintf(stream, "Usage: %s -i <input.har> [-l <limit>] [-h] [-d]\n", program);
+}
+
+static Err hvm_alloc(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  hvm->stack[hvm->stack_size - 1].as_ptr =
+      malloc(hvm->stack[hvm->stack_size - 1].as_u64);
+
+  return ERR_OK;
+}
+
+static Err hvm_free(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  free(hvm->stack[hvm->stack_size - 1].as_ptr);
+  hvm->stack_size -= 1;
+
+  return ERR_OK;
 }
 
 int main(int argc, char **argv) {
@@ -59,6 +82,8 @@ int main(int argc, char **argv) {
   }
 
   hvm_load_program_from_file(&hvm, input_file_path);
+  hvm_push_native(&hvm, hvm_alloc);
+  hvm_push_native(&hvm, hvm_free);
 
   if (!debug) {
     Err err = hvm_execute_program(&hvm, limit);
@@ -71,7 +96,10 @@ int main(int argc, char **argv) {
   } else {
     while (limit != 0 && !hvm.halt) {
       hvm_dump_stack(stdout, &hvm);
+      printf("%s %" PRIu64 "\n", inst_name(hvm.program[hvm.ip].type),
+             hvm.program[hvm.ip].operand.as_u64);
       getchar();
+
       Err err = hvm_execute_inst(&hvm);
       if (err != ERR_OK) {
         fprintf(stderr, "ERROR: %s\n", err_as_cstr(err));
