@@ -31,7 +31,8 @@ typedef enum {
 const char *err_as_cstr(Err err);
 
 // TODO(#5): comparison instruction set is not complete
-// TODO(#6): there is no operations for converting integer->float/float->integer
+// TODO(#6): there is no operations for converting
+// integer->float/float->interger
 typedef enum {
   INST_NOP = 0,
   INST_PUSH,
@@ -138,7 +139,8 @@ Inst_Addr hack_find_label_addr(const Hack *hack, String_View name);
 void hack_push_label(Hack *hack, String_View name, Inst_Addr addr);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View label);
 
-void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack);
+void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
+                          const char *input_file_path);
 
 Word number_literal_as_word(String_View sv);
 
@@ -309,8 +311,8 @@ Err hvm_execute_inst(Hvm *hvm) {
     break;
 
   case INST_DROP:
-    if (hvm->stack_size >= HVM_STACK_CAPACITY) {
-      return ERR_STACK_OVERFLOW;
+    if (hvm->stack_size < 1) {
+      return ERR_STACK_UNDERFLOW;
     }
     hvm->stack_size -= 1;
     hvm->ip += 1;
@@ -431,7 +433,10 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (inst.operand.as_u64 > hvm->natives_size) {
       return ERR_ILLEGAL_OPERAND;
     }
-    hvm->natives[inst.operand.as_u64](hvm);
+    const Err err = hvm->natives[inst.operand.as_u64](hvm);
+    if (err != ERR_OK) {
+      return err;
+    }
     hvm->ip += 1;
     break;
 
@@ -451,7 +456,8 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->ip += 1;
     break;
 
-  // TODO(#7): inconsistency between gef and minus* instructions
+  // TODO(#7): Inconsistency between gef and minus* instructions operand
+  // ordering
   case INST_GEF:
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
@@ -689,6 +695,7 @@ Inst_Addr hack_find_label_addr(const Hack *hack, String_View name) {
     }
   }
 
+  // TODO(#43): unknown label hack error does not print its location
   fprintf(stderr, "ERROR: label `%.*s` does not exist\n", (int)name.count,
           name.data);
   exit(1);
@@ -719,6 +726,7 @@ Word number_literal_as_word(String_View sv) {
   if ((size_t)(endptr - cstr) != sv.count) {
     result.as_f64 = strtod(cstr, &endptr);
     if ((size_t)(endptr - cstr) != sv.count) {
+      // TODO(#44): invalid literal hack error does not print its location
       fprintf(stderr, "ERROR: `%s` is not a number literal\n", cstr);
       exit(1);
     }
@@ -727,13 +735,16 @@ Word number_literal_as_word(String_View sv) {
   return result;
 }
 
-void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack) {
+void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
+                          const char *input_file_path) {
   hvm->program_size = 0;
+  int line_number = 0;
 
   // First pass
   while (source.count > 0) {
     assert(hvm->program_size < HVM_PROGRAM_CAPACITY);
     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
+    line_number += 1;
     if (line.count > 0 && *line.data != '#') {
       String_View token = sv_chop_by_delim(&line, ' ');
 
@@ -846,8 +857,8 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack) {
               .operand = {.as_i64 = sv_to_int(operand)},
           };
         } else {
-          fprintf(stderr, "ERROR: unknown instruction `%.*s`\n",
-                  (int)token.count, token.data);
+          fprintf(stderr, "%s:%d: ERROR: unknown instruction `%.*s`\n",
+                  input_file_path, line_number, (int)token.count, token.data);
           exit(1);
         }
       }

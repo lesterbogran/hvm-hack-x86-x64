@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
 
   String_View source = sv_slurp_file(input_file_path);
 
-  hvm_translate_source(source, &hvm, &hack);
+  hvm_translate_source(source, &hvm, &hack, input_file_path);
   hvm_save_program_to_file(&hvm, output_file_path);
 
   return 0;
