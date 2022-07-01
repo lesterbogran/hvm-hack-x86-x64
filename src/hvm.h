@@ -124,7 +124,7 @@ void hvm_save_program_to_file(const Hvm *hvm, const char *file_path);
 
 typedef struct {
   String_View name;
-  Inst_Addr addr;
+  Word word;
 } Label;
 
 typedef struct {
@@ -139,8 +139,8 @@ typedef struct {
   size_t deferred_operands_size;
 } Hack;
 
-Inst_Addr hack_find_label_addr(const Hack *hack, String_View name);
-void hack_push_label(Hack *hack, String_View name, Inst_Addr addr);
+int hack_resolve_label(const Hack *hack, String_View name, Word *output);
+int hack_bind_label(Hack *hack, String_View name, Word word);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View label);
 
 void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
@@ -703,22 +703,27 @@ int sv_to_int(String_View sv) {
   return result;
 }
 
-Inst_Addr hack_find_label_addr(const Hack *hack, String_View name) {
+int hack_resolve_label(const Hack *hack, String_View name, Word *output) {
   for (size_t i = 0; i < hack->labels_size; ++i) {
     if (sv_eq(hack->labels[i].name, name)) {
-      return hack->labels[i].addr;
+      *output = hack->labels[i].word;
+      return 1;
     }
   }
 
-  fprintf(stderr, "ERROR: label `%.*s` does not exist\n", (int)name.count,
-          name.data);
-  exit(1);
+  return 0;
 }
 
-// TODO(#12): label should refer to Word instead of Inst_Addr
-void hack_push_label(Hack *hack, String_View name, Inst_Addr addr) {
+int hack_bind_label(Hack *hack, String_View name, Word word) {
   assert(hack->labels_size < LABEL_CAPACITY);
-  hack->labels[hack->labels_size++] = (Label){.name = name, .addr = addr};
+
+  Word ignore = {0};
+  if (hack_resolve_label(hack, name, &ignore)) {
+    return 0;
+  }
+
+  hack->labels[hack->labels_size++] = (Label){.name = name, .word = word};
+  return 1;
 }
 
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View label) {
@@ -780,9 +785,14 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
               exit(1);
             }
 
-            // TODO(#13): hack does not fail when you redefine a label
-
-            hack_push_label(hack, label, word.as_u64);
+            if (!hack_bind_label(hack, label, word)) {
+              // TODO(#14): label redefinition error does not tell where the first
+              // label was already defined
+              fprintf(stderr, "%s:%d: ERROR: label `%.*s` is already defined\n",
+                      input_file_path, line_number, (int)label.count,
+                      label.data);
+              exit(1);
+            }
           } else {
             fprintf(stderr, "%s:%d: ERROR: label name is not provided\n",
                     input_file_path, line_number);
@@ -800,7 +810,12 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
         if (token.count > 0 && token.data[token.count - 1] == ':') {
           String_View label = {.count = token.count - 1, .data = token.data};
 
-          hack_push_label(hack, label, hvm->program_size);
+          if (!hack_bind_label(hack, label,
+                               (Word){.as_u64 = hvm->program_size})) {
+            fprintf(stderr, "%s:%d: ERROR: label `%.*s` is already defined\n",
+                    input_file_path, line_number, (int)label.count, label.data);
+            exit(1);
+          }
 
           token = sv_trim(sv_chop_by_delim(&line, ' '));
         }
@@ -842,9 +857,17 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
 
   // Second pass
   for (size_t i = 0; i < hack->deferred_operands_size; ++i) {
-    Inst_Addr addr =
-        hack_find_label_addr(hack, hack->deferred_operands[i].label);
-    hvm->program[hack->deferred_operands[i].addr].operand.as_u64 = addr;
+    String_View label = hack->deferred_operands[i].label;
+
+    if (!hack_resolve_label(
+            hack, label,
+            &hvm->program[hack->deferred_operands[i].addr].operand)) {
+      // TODO: second pass label resolution errors don't report the location in
+      // the source code
+      fprintf(stderr, "%s: ERROR: unknown label `%.*s`\n", input_file_path,
+              (int)label.count, label.data);
+      exit(1);
+    }
   }
 }
 
