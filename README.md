@@ -5,9 +5,8 @@ The hacker Virtual Machine
 ## Quick Start
 
 ```console
-$ make
-$ make examples
-$ ./hack -i ./examples/fib.har -l 69
+$ make all examples
+$ ./hack -i ./examples/fib.har
 $ ./hack -i ./examples/e.har
 $ ./hack -i ./examples/pi.har
 ```
