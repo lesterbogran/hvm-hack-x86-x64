@@ -23,6 +23,8 @@ lerpf:
     drop
     ret
 
+# TODO(#4): make lerp.hack example more interesting
+# Sample throw the lerp with regular intervals
 main:
     push 69.0
     push 420.0
