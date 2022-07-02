@@ -21,6 +21,7 @@
 #define HACK_COMMENT_SYMBOL ';'
 #define HACK_PP_SYMBOL '%'
 #define HACK_MAX_INCLUDE_LEVEL 69
+#define HACK_MEMORY_CAPACITY (1000 * 1000 * 1000)
 
 typedef struct {
   size_t count;
@@ -36,7 +37,6 @@ String_View sv_trim(String_View sv);
 String_View sv_chop_by_delim(String_View *sv, char delim);
 int sv_eq(String_View a, String_View b);
 int sv_to_int(String_View sv);
-String_View sv_slurp_file(String_View file_path);
 
 typedef enum {
   ERR_OK = 0,
@@ -140,8 +140,12 @@ typedef struct {
   size_t labels_size;
   Deferred_Operand deferred_operands[DEFERRED_OPERANDS_CAPACITY];
   size_t deferred_operands_size;
+  char memory[HACK_MEMORY_CAPACITY];
+  size_t memory_size;
 } Hack;
 
+void *hack_alloc(Hack *hack, size_t size);
+String_View hack_slurp_file(Hack *hack, String_View file_path);
 int hack_resolve_label(const Hack *hack, String_View name, Word *output);
 int hack_bind_label(Hack *hack, String_View name, Word word);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View label);
@@ -706,6 +710,14 @@ int sv_to_int(String_View sv) {
   return result;
 }
 
+void *hack_alloc(Hack *hack, size_t size) {
+  assert(hack->memory_size + size <= HACK_MEMORY_CAPACITY);
+
+  void *result = hack->memory + hack->memory_size;
+  hack->memory_size += size;
+  return result;
+}
+
 int hack_resolve_label(const Hack *hack, String_View name, Word *output) {
   for (size_t i = 0; i < hack->labels_size; ++i) {
     if (sv_eq(hack->labels[i].name, name)) {
@@ -759,7 +771,7 @@ int number_literal_as_word(String_View sv, Word *output) {
 
 void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
                           size_t level) {
-  String_View original_source = sv_slurp_file(input_file_path);
+  String_View original_source = hack_slurp_file(hack, input_file_path);
   String_View source = original_source;
 
   hvm->program_size = 0;
@@ -902,12 +914,10 @@ void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
       exit(1);
     }
   }
-
-  free((void *)original_source.data);
 }
 
-String_View sv_slurp_file(String_View file_path) {
-  char *file_path_cstr = malloc(file_path.count + 1);
+String_View hack_slurp_file(Hack *hack, String_View file_path) {
+  char *file_path_cstr = hack_alloc(hack, file_path.count + 1);
   if (file_path_cstr == NULL) {
     fprintf(stderr,
             "ERROR: Could not allocate memory for the file path `%.*s`: %s\n",
@@ -938,7 +948,7 @@ String_View sv_slurp_file(String_View file_path) {
     exit(1);
   }
 
-  char *buffer = malloc(m);
+  char *buffer = hack_alloc(hack, m);
   if (buffer == NULL) {
     fprintf(stderr, "ERROR: Could not allocate memory for file: %s\n",
             strerror(errno));
@@ -959,8 +969,6 @@ String_View sv_slurp_file(String_View file_path) {
   }
 
   fclose(f);
-  free(file_path_cstr);
-
   return (String_View){
       .count = n,
       .data = buffer,
