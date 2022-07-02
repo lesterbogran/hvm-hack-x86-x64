@@ -5,19 +5,18 @@
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define ARRAY_SIZE(xs) (sizeof(xs) / sizeof((xs)[0]))
 #define HVM_STACK_CAPACITY 1024
 #define HVM_PROGRAM_CAPACITY 1024
 #define HVM_NATIVES_CAPACITY 1024
-#define LABEL_CAPACITY 1024
-#define DEFERRED_OPERANDS_CAPACITY 1024
-#define NUMBER_LITERAL_CAPACITY 1024
 
+#define HACK_LABEL_CAPACITY 1024
+#define HACK_DEFERRED_OPERANDS_CAPACITY 1024
 #define HACK_COMMENT_SYMBOL ';'
 #define HACK_PP_SYMBOL '%'
 #define HACK_MAX_INCLUDE_LEVEL 69
@@ -30,13 +29,12 @@ typedef struct {
 
 #define SV_FORMAT(sv) (int)sv.count, sv.data
 
-String_View cstr_as_sv(const char *cstr);
+String_View sv_from_cstr(const char *cstr);
 String_View sv_trim_left(String_View sv);
 String_View sv_trim_right(String_View sv);
 String_View sv_trim(String_View sv);
 String_View sv_chop_by_delim(String_View *sv, char delim);
-int sv_eq(String_View a, String_View b);
-int sv_to_int(String_View sv);
+bool sv_eq(String_View a, String_View b);
 
 typedef enum {
   ERR_OK = 0,
@@ -50,8 +48,8 @@ typedef enum {
 
 const char *err_as_cstr(Err err);
 
-// TODO(#5): comparison instruction set is not complete
-// TODO(#6): there is no operations for converting
+// TODO(#38): comparison instruction set is not complete
+// TODO(#39): there is no operations for converting
 // integer->float/float->interger
 typedef enum {
   INST_NOP = 0,
@@ -86,8 +84,8 @@ typedef enum {
 } Inst_Type;
 
 const char *inst_name(Inst_Type type);
-int inst_has_operand(Inst_Type type);
-int inst_by_name(String_View name, Inst_Type *output);
+bool inst_has_operand(Inst_Type type);
+bool inst_by_name(String_View name, Inst_Type *output);
 
 typedef uint64_t Inst_Addr;
 
@@ -120,7 +118,7 @@ struct Hvm {
   Hvm_Native natives[HVM_NATIVES_CAPACITY];
   size_t natives_size;
 
-  int halt;
+  bool halt;
 };
 
 Err hvm_execute_inst(Hvm *hvm);
@@ -142,9 +140,9 @@ typedef struct {
 } Deferred_Operand;
 
 typedef struct {
-  Label labels[LABEL_CAPACITY];
+  Label labels[HACK_LABEL_CAPACITY];
   size_t labels_size;
-  Deferred_Operand deferred_operands[DEFERRED_OPERANDS_CAPACITY];
+  Deferred_Operand deferred_operands[HACK_DEFERRED_OPERANDS_CAPACITY];
   size_t deferred_operands_size;
   char memory[HACK_MEMORY_CAPACITY];
   size_t memory_size;
@@ -152,93 +150,92 @@ typedef struct {
 
 void *hack_alloc(Hack *hack, size_t size);
 String_View hack_slurp_file(Hack *hack, String_View file_path);
-int hack_resolve_label(const Hack *hack, String_View name, Word *output);
-int hack_bind_label(Hack *hack, String_View name, Word word);
+bool hack_resolve_label(const Hack *hack, String_View name, Word *output);
+bool hack_bind_label(Hack *hack, String_View name, Word word);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View label);
+bool hack_number_literal_as_word(Hack *hack, String_View sv, Word *output);
 
-void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
-                          size_t level);
-
-int number_literal_as_word(String_View sv, Word *output);
+void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
+                           size_t level);
 
 #endif // HVM_H_
 
 #ifdef HVM_IMPLEMENTATION
 
-int inst_has_operand(Inst_Type type) {
+bool inst_has_operand(Inst_Type type) {
   switch (type) {
   case INST_NOP:
-    return 0;
+    return false;
   case INST_PUSH:
-    return 1;
+    return true;
   case INST_DROP:
-    return 0;
+    return false;
   case INST_DUP:
-    return 1;
+    return true;
   case INST_PLUSI:
-    return 0;
+    return false;
   case INST_MINUSI:
-    return 0;
+    return false;
   case INST_MULTI:
-    return 0;
+    return false;
   case INST_DIVI:
-    return 0;
+    return false;
   case INST_PLUSF:
-    return 0;
+    return false;
   case INST_MINUSF:
-    return 0;
+    return false;
   case INST_MULTF:
-    return 0;
+    return false;
   case INST_DIVF:
-    return 0;
+    return false;
   case INST_JMP:
-    return 1;
+    return true;
   case INST_JMP_IF:
-    return 1;
+    return true;
   case INST_EQ:
-    return 0;
+    return false;
   case INST_HALT:
-    return 0;
+    return false;
   case INST_SWAP:
-    return 1;
+    return true;
   case INST_NOT:
-    return 0;
+    return false;
   case INST_GEF:
-    return 0;
+    return false;
   case INST_RET:
-    return 0;
+    return false;
   case INST_CALL:
-    return 1;
+    return true;
   case INST_NATIVE:
-    return 1;
+    return true;
   case INST_ANDB:
-    return 0;
+    return false;
   case INST_ORB:
-    return 0;
+    return false;
   case INST_XOR:
-    return 0;
+    return false;
   case INST_SHR:
-    return 0;
+    return false;
   case INST_SHL:
-    return 0;
+    return false;
   case INST_NOTB:
-    return 0;
+    return false;
   case NUMBER_OF_INSTS:
   default:
-    assert(0 && "inst_has_operand: unreachable");
+    assert(false && "inst_has_operand: unreachable");
     exit(1);
   }
 }
 
-int inst_by_name(String_View name, Inst_Type *output) {
+bool inst_by_name(String_View name, Inst_Type *output) {
   for (Inst_Type type = (Inst_Type)0; type < NUMBER_OF_INSTS; type += 1) {
-    if (sv_eq(cstr_as_sv(inst_name(type)), name)) {
+    if (sv_eq(sv_from_cstr(inst_name(type)), name)) {
       *output = type;
-      return 1;
+      return true;
     }
   }
 
-  return 0;
+  return false;
 }
 
 const char *inst_name(Inst_Type type) {
@@ -301,7 +298,7 @@ const char *inst_name(Inst_Type type) {
     return "notb";
   case NUMBER_OF_INSTS:
   default:
-    assert(0 && "inst_name: unreachable");
+    assert(false && "inst_name: unreachable");
     exit(1);
   }
 }
@@ -323,7 +320,7 @@ const char *err_as_cstr(Err err) {
   case ERR_DIV_BY_ZERO:
     return "ERR_DIV_BY_ZERO";
   default:
-    assert(0 && "err_as_cstr: Unreachable");
+    assert(false && "err_as_cstr: Unreachable");
     exit(1);
   }
 }
@@ -508,7 +505,7 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->ip += 1;
     break;
 
-  // TODO(#7): Inconsistency between gef and minus* instructions operand
+  // TODO(#40): Inconsistency between gef and minus* instructions operand
   // ordering
   case INST_GEF:
     if (hvm->stack_size < 2) {
@@ -740,7 +737,7 @@ void hvm_save_program_to_file(const Hvm *hvm, const char *file_path) {
   fclose(f);
 }
 
-String_View cstr_as_sv(const char *cstr) {
+String_View sv_from_cstr(const char *cstr) {
   return (String_View){
       .count = strlen(cstr),
       .data = cstr,
@@ -792,22 +789,12 @@ String_View sv_chop_by_delim(String_View *sv, char delim) {
   return result;
 }
 
-int sv_eq(String_View a, String_View b) {
+bool sv_eq(String_View a, String_View b) {
   if (a.count != b.count) {
-    return 0;
+    return false;
   } else {
     return memcmp(a.data, b.data, a.count) == 0;
   }
-}
-
-int sv_to_int(String_View sv) {
-  int result = 0;
-
-  for (size_t i = 0; i < sv.count && isdigit(sv.data[i]); ++i) {
-    result = result * 10 + sv.data[i] - '0';
-  }
-
-  return result;
 }
 
 void *hack_alloc(Hack *hack, size_t size) {
@@ -818,59 +805,57 @@ void *hack_alloc(Hack *hack, size_t size) {
   return result;
 }
 
-int hack_resolve_label(const Hack *hack, String_View name, Word *output) {
+bool hack_resolve_label(const Hack *hack, String_View name, Word *output) {
   for (size_t i = 0; i < hack->labels_size; ++i) {
     if (sv_eq(hack->labels[i].name, name)) {
       *output = hack->labels[i].word;
-      return 1;
+      return true;
     }
   }
 
-  return 0;
+  return false;
 }
 
-int hack_bind_label(Hack *hack, String_View name, Word word) {
-  assert(hack->labels_size < LABEL_CAPACITY);
+bool hack_bind_label(Hack *hack, String_View name, Word word) {
+  assert(hack->labels_size < HACK_LABEL_CAPACITY);
 
   Word ignore = {0};
   if (hack_resolve_label(hack, name, &ignore)) {
-    return 0;
+    return false;
   }
 
   hack->labels[hack->labels_size++] = (Label){.name = name, .word = word};
-  return 1;
+  return true;
 }
 
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View label) {
-  assert(hack->deferred_operands_size < DEFERRED_OPERANDS_CAPACITY);
+  assert(hack->deferred_operands_size < HACK_DEFERRED_OPERANDS_CAPACITY);
   hack->deferred_operands[hack->deferred_operands_size++] =
       (Deferred_Operand){.addr = addr, .label = label};
 }
 
-int number_literal_as_word(String_View sv, Word *output) {
-  assert(sv.count < NUMBER_LITERAL_CAPACITY);
-  char cstr[NUMBER_LITERAL_CAPACITY + 1];
-  char *endptr = 0;
-
+bool hack_number_literal_as_word(Hack *hack, String_View sv, Word *output) {
+  char *cstr = hack_alloc(hack, sv.count + 1);
   memcpy(cstr, sv.data, sv.count);
   cstr[sv.count] = '\0';
 
+  char *endptr = 0;
   Word result = {0};
 
   result.as_u64 = strtoull(cstr, &endptr, 10);
   if ((size_t)(endptr - cstr) != sv.count) {
     result.as_f64 = strtod(cstr, &endptr);
     if ((size_t)(endptr - cstr) != sv.count) {
-      return 0;
+      return false;
     }
   }
 
   *output = result;
-  return 1;
+  return true;
 }
 
-void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
-                          size_t level) {
+void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
+                           size_t level) {
   String_View original_source = hack_slurp_file(hack, input_file_path);
   String_View source = original_source;
 
@@ -889,14 +874,14 @@ void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
       if (token.count > 0 && *token.data == HACK_PP_SYMBOL) {
         token.count -= 1;
         token.data += 1;
-        if (sv_eq(token, cstr_as_sv("label"))) {
+        if (sv_eq(token, sv_from_cstr("label"))) {
           line = sv_trim(line);
           String_View label = sv_chop_by_delim(&line, ' ');
           if (label.count > 0) {
             line = sv_trim(line);
             String_View value = sv_chop_by_delim(&line, ' ');
             Word word = {0};
-            if (!number_literal_as_word(value, &word)) {
+            if (!hack_number_literal_as_word(hack, value, &word)) {
               fprintf(stderr, "%.*s:%d: ERROR: `%.*s` is not a number",
                       SV_FORMAT(input_file_path), line_number,
                       SV_FORMAT(value));
@@ -904,7 +889,7 @@ void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
             }
 
             if (!hack_bind_label(hack, label, word)) {
-              // TODO(#14): label redefinition error does not tell where the
+              // TODO(#51): label redefinition error does not tell where the
               // first label was already defined
               fprintf(
                   stderr, "%.*s:%d: ERROR: label `%.*s` is already defined\n",
@@ -916,7 +901,7 @@ void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
                     SV_FORMAT(input_file_path), line_number);
             exit(1);
           }
-        } else if (sv_eq(token, cstr_as_sv("include"))) {
+        } else if (sv_eq(token, sv_from_cstr("include"))) {
           line = sv_trim(line);
 
           if (line.count > 0) {
@@ -931,7 +916,7 @@ void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
                 exit(1);
               }
 
-              hvm_translate_source(hvm, hack, line, level + 1);
+              hack_translate_source(hvm, hack, line, level + 1);
             } else {
               fprintf(stderr,
                       "%.*s:%d: ERROR: include file path has to be surrounded "
@@ -984,8 +969,9 @@ void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
                 exit(1);
               }
 
-              if (!number_literal_as_word(
-                      operand, &hvm->program[hvm->program_size].operand)) {
+              if (!hack_number_literal_as_word(
+                      hack, operand,
+                      &hvm->program[hvm->program_size].operand)) {
                 hack_push_deferred_operand(hack, hvm->program_size, operand);
               }
             }
@@ -1007,7 +993,7 @@ void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
     if (!hack_resolve_label(
             hack, label,
             &hvm->program[hack->deferred_operands[i].addr].operand)) {
-      // TODO(#15): second pass label resolution errors don't report the
+      // TODO(#52): second pass label resolution errors don't report the
       // location in the source code
       fprintf(stderr, "%.*s: ERROR: unknown label `%.*s`\n",
               SV_FORMAT(input_file_path), SV_FORMAT(label));
@@ -1069,6 +1055,7 @@ String_View hack_slurp_file(Hack *hack, String_View file_path) {
   }
 
   fclose(f);
+
   return (String_View){
       .count = n,
       .data = buffer,
