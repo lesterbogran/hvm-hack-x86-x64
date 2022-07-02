@@ -21,7 +21,7 @@
 #define HACK_COMMENT_SYMBOL ';'
 #define HACK_PP_SYMBOL '%'
 #define HACK_MAX_INCLUDE_LEVEL 69
-#define HACK_MEMORY_CAPACITY (1000 * 1000 * 1000)
+#define HACK_ARENA_CAPACITY (1000 * 1000 * 1000)
 
 typedef struct {
   size_t count;
@@ -160,10 +160,9 @@ typedef struct {
   size_t labels_size;
   Deferred_Operand deferred_operands[HACK_DEFERRED_OPERANDS_CAPACITY];
   size_t deferred_operands_size;
-  // TODO(#20): Hack::memory is not the same thing as Hvm::memory
-  // We may want to do some renamine to avoid the confusion in the future.
-  char memory[HACK_MEMORY_CAPACITY];
-  size_t memory_size;
+  // NOTE: https://en.wikipedia.org/wiki/Region-based_memory_management
+  char arena[HACK_ARENA_CAPACITY];
+  size_t arena_size;
 } Hack;
 
 void *hack_alloc(Hack *hack, size_t size);
@@ -960,10 +959,10 @@ bool sv_eq(String_View a, String_View b) {
 }
 
 void *hack_alloc(Hack *hack, size_t size) {
-  assert(hack->memory_size + size <= HACK_MEMORY_CAPACITY);
+  assert(hack->arena_size + size <= HACK_ARENA_CAPACITY);
 
-  void *result = hack->memory + hack->memory_size;
-  hack->memory_size += size;
+  void *result = hack->arena + hack->arena_size;
+  hack->arena_size += size;
   return result;
 }
 
