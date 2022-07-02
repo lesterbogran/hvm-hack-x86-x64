@@ -2,9 +2,9 @@
 
 set -e
 
-CC="${CC:-cc}"
-CFLAGS='-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -pedantic -std=c11'
-LIBS=''
+CC=${CC:-cc}
+CFLAGS='-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -pedantic -ggdb -std=c11'
+LIBS=
 
 (set -x ;\
     $CC $CFLAGS -o hackc  ./src/hackc.c  $LIBS ;\
