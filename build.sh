@@ -11,6 +11,6 @@ LIBS=''
     $CC $CFLAGS -o hack   ./src/hack.c   $LIBS ;\
     $CC $CFLAGS -o dehack ./src/dehack.c $LIBS)
 
-for example in `find examples/ -name *.hack ! -name *.h.hack | sed "s/.hack//"`; do
+for example in `find examples/ -name *.hack ! -name natives.hack | sed "s/.hack//"`; do
     (set -x; ./hackc $example.hack $example.har)
 done

@@ -20,11 +20,14 @@
 
 #define HACK_COMMENT_SYMBOL ';'
 #define HACK_PP_SYMBOL '%'
+#define HACK_MAX_INCLUDE_LEVEL 69
 
 typedef struct {
   size_t count;
   const char *data;
 } String_View;
+
+#define SV_FORMAT(sv) (int)sv.count, sv.data
 
 String_View cstr_as_sv(const char *cstr);
 String_View sv_trim_left(String_View sv);
@@ -33,7 +36,7 @@ String_View sv_trim(String_View sv);
 String_View sv_chop_by_delim(String_View *sv, char delim);
 int sv_eq(String_View a, String_View b);
 int sv_to_int(String_View sv);
-String_View sv_slurp_file(const char *file_path);
+String_View sv_slurp_file(String_View file_path);
 
 typedef enum {
   ERR_OK = 0,
@@ -143,8 +146,8 @@ int hack_resolve_label(const Hack *hack, String_View name, Word *output);
 int hack_bind_label(Hack *hack, String_View name, Word word);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View label);
 
-void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
-                          const char *input_file_path);
+void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
+                          size_t level);
 
 int number_literal_as_word(String_View sv, Word *output);
 
@@ -754,8 +757,11 @@ int number_literal_as_word(String_View sv, Word *output) {
   return 1;
 }
 
-void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
-                          const char *input_file_path) {
+void hvm_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
+                          size_t level) {
+  String_View original_source = sv_slurp_file(input_file_path);
+  String_View source = original_source;
+
   hvm->program_size = 0;
   int line_number = 0;
 
@@ -772,48 +778,76 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
         token.count -= 1;
         token.data += 1;
         if (sv_eq(token, cstr_as_sv("label"))) {
-          token = sv_trim(token);
+          line = sv_trim(line);
           String_View label = sv_chop_by_delim(&line, ' ');
           if (label.count > 0) {
-            token = sv_trim(token);
+            line = sv_trim(line);
             String_View value = sv_chop_by_delim(&line, ' ');
             Word word = {0};
             if (!number_literal_as_word(value, &word)) {
-              fprintf(stderr, "%s:%d: ERROR: `%.*s` is not a number\n",
-                      input_file_path, line_number, (int)value.count,
-                      value.data);
+              fprintf(stderr, "%.*s:%d: ERROR: `%.*s` is not a number",
+                      SV_FORMAT(input_file_path), line_number,
+                      SV_FORMAT(value));
               exit(1);
             }
 
             if (!hack_bind_label(hack, label, word)) {
-              // TODO(#14): label redefinition error does not tell where the first
-              // label was already defined
-              fprintf(stderr, "%s:%d: ERROR: label `%.*s` is already defined\n",
-                      input_file_path, line_number, (int)label.count,
-                      label.data);
+              // TODO(#14): label redefinition error does not tell where the
+              // first label was already defined
+              fprintf(
+                  stderr, "%.*s:%d: ERROR: label `%.*s` is already defined\n",
+                  SV_FORMAT(input_file_path), line_number, SV_FORMAT(label));
               exit(1);
             }
           } else {
-            fprintf(stderr, "%s:%d: ERROR: label name is not provided\n",
-                    input_file_path, line_number);
+            fprintf(stderr, "%.*s:%d: ERROR: label name is not provided\n",
+                    SV_FORMAT(input_file_path), line_number);
+            exit(1);
+          }
+        } else if (sv_eq(token, cstr_as_sv("include"))) {
+          line = sv_trim(line);
+
+          if (line.count > 0) {
+            if (*line.data == '"' && line.data[line.count - 1] == '"') {
+              line.data += 1;
+              line.count -= 2;
+
+              if (level + 1 >= HACK_MAX_INCLUDE_LEVEL) {
+                fprintf(stderr,
+                        "%.*s:%d: ERROR: exceeded maximum include level\n",
+                        SV_FORMAT(input_file_path), line_number);
+                exit(1);
+              }
+
+              hvm_translate_source(hvm, hack, line, level + 1);
+            } else {
+              fprintf(stderr,
+                      "%.*s:%d: ERROR: include file path has to be surrounded "
+                      "with quotation marks\n",
+                      SV_FORMAT(input_file_path), line_number);
+              exit(1);
+            }
+          } else {
+            fprintf(stderr,
+                    "%.*s:%d: ERROR: include file path is not provided\n",
+                    SV_FORMAT(input_file_path), line_number);
             exit(1);
           }
         } else {
           fprintf(stderr,
-                  "%s:%d: ERROR: unknown pre-processor directive `%.*s`\n",
-                  input_file_path, line_number, (int)token.count, token.data);
+                  "%.*s:%d: ERROR: unknown pre-processor directive `%.*s`\n",
+                  SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
           exit(1);
         }
       } else {
-
         // Label
         if (token.count > 0 && token.data[token.count - 1] == ':') {
           String_View label = {.count = token.count - 1, .data = token.data};
 
           if (!hack_bind_label(hack, label,
                                (Word){.as_u64 = hvm->program_size})) {
-            fprintf(stderr, "%s:%d: ERROR: label `%.*s` is already defined\n",
-                    input_file_path, line_number, (int)label.count, label.data);
+            fprintf(stderr, "%.*s:%d: ERROR: label `%.*s` is already defined\n",
+                    SV_FORMAT(input_file_path), line_number, SV_FORMAT(label));
             exit(1);
           }
 
@@ -833,8 +867,8 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
               if (operand.count == 0) {
                 fprintf(
                     stderr,
-                    "%s:%d: ERROR: instruction `%.*s` requires an operand\n",
-                    input_file_path, line_number, (int)token.count, token.data);
+                    "%.*s:%d: ERROR: instruction `%.*s` requires an operand\n",
+                    SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
                 exit(1);
               }
 
@@ -846,8 +880,8 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
 
             hvm->program_size += 1;
           } else {
-            fprintf(stderr, "%s:%d: ERROR: unknown instruction `%.*s`\n",
-                    input_file_path, line_number, (int)token.count, token.data);
+            fprintf(stderr, "%.*s:%d: ERROR: unknown instruction `%.*s`\n",
+                    SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
             exit(1);
           }
         }
@@ -858,36 +892,48 @@ void hvm_translate_source(String_View source, Hvm *hvm, Hack *hack,
   // Second pass
   for (size_t i = 0; i < hack->deferred_operands_size; ++i) {
     String_View label = hack->deferred_operands[i].label;
-
     if (!hack_resolve_label(
             hack, label,
             &hvm->program[hack->deferred_operands[i].addr].operand)) {
-      // TODO(#15): second pass label resolution errors don't report the location in
-      // the source code
-      fprintf(stderr, "%s: ERROR: unknown label `%.*s`\n", input_file_path,
-              (int)label.count, label.data);
+      // TODO(#15): second pass label resolution errors don't report the
+      // location in the source code
+      fprintf(stderr, "%.*s: ERROR: unknown label `%.*s`\n",
+              SV_FORMAT(input_file_path), SV_FORMAT(label));
       exit(1);
     }
   }
+
+  free((void *)original_source.data);
 }
 
-String_View sv_slurp_file(const char *file_path) {
-  FILE *f = fopen(file_path, "r");
+String_View sv_slurp_file(String_View file_path) {
+  char *file_path_cstr = malloc(file_path.count + 1);
+  if (file_path_cstr == NULL) {
+    fprintf(stderr,
+            "ERROR: Could not allocate memory for the file path `%.*s`: %s\n",
+            SV_FORMAT(file_path), strerror(errno));
+    exit(1);
+  }
+
+  memcpy(file_path_cstr, file_path.data, file_path.count);
+  file_path_cstr[file_path.count] = '\0';
+
+  FILE *f = fopen(file_path_cstr, "r");
   if (f == NULL) {
-    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
+    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path_cstr,
             strerror(errno));
     exit(1);
   }
 
   if (fseek(f, 0, SEEK_END) < 0) {
-    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
+    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path_cstr,
             strerror(errno));
     exit(1);
   }
 
   long m = ftell(f);
   if (m < 0) {
-    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
+    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path_cstr,
             strerror(errno));
     exit(1);
   }
@@ -900,19 +946,20 @@ String_View sv_slurp_file(const char *file_path) {
   }
 
   if (fseek(f, 0, SEEK_SET) < 0) {
-    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
+    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path_cstr,
             strerror(errno));
     exit(1);
   }
 
   size_t n = fread(buffer, 1, m, f);
   if (ferror(f)) {
-    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path,
+    fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path_cstr,
             strerror(errno));
     exit(1);
   }
 
   fclose(f);
+  free(file_path_cstr);
 
   return (String_View){
       .count = n,
