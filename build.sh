@@ -3,7 +3,7 @@
 set -e
 
 CC=${CC:-cc}
-CFLAGS='-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -pedantic -ggdb -std=c11'
+CFLAGS='-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -Wconversion -pedantic -fno-strict-aliasing -ggdb -std=c11'
 LIBS=
 
 (set -x ;\

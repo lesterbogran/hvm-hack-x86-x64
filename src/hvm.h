@@ -14,6 +14,7 @@
 #define HVM_STACK_CAPACITY 1024
 #define HVM_PROGRAM_CAPACITY 1024
 #define HVM_NATIVES_CAPACITY 1024
+#define HVM_MEMORY_CAPACITY (640 * 1000)
 
 #define HACK_LABEL_CAPACITY 1024
 #define HACK_DEFERRED_OPERANDS_CAPACITY 1024
@@ -43,13 +44,14 @@ typedef enum {
   ERR_ILLEGAL_INST,
   ERR_ILLEGAL_INST_ACCESS,
   ERR_ILLEGAL_OPERAND,
+  ERR_ILLEGAL_MEMORY_ACCESS,
   ERR_DIV_BY_ZERO,
 } Err;
 
 const char *err_as_cstr(Err err);
 
-// TODO(#38): comparison instruction set is not complete
-// TODO(#39): there is no operations for converting
+// TODO(#5): comparison instruction set is not complete
+// TODO(#6): there is no operations for converting
 // integer->float/float->interger
 typedef enum {
   INST_NOP = 0,
@@ -80,6 +82,14 @@ typedef enum {
   INST_SHR,
   INST_SHL,
   INST_NOTB,
+  INST_READ8,
+  INST_READ16,
+  INST_READ32,
+  INST_READ64,
+  INST_WRITE8,
+  INST_WRITE16,
+  INST_WRITE32,
+  INST_WRITE64,
   NUMBER_OF_INSTS,
 } Inst_Type;
 
@@ -88,6 +98,7 @@ bool inst_has_operand(Inst_Type type);
 bool inst_by_name(String_View name, Inst_Type *output);
 
 typedef uint64_t Inst_Addr;
+typedef uint64_t Memory_Addr;
 
 typedef union {
   uint64_t as_u64;
@@ -118,6 +129,8 @@ struct Hvm {
   Hvm_Native natives[HVM_NATIVES_CAPACITY];
   size_t natives_size;
 
+  uint8_t memory[HVM_MEMORY_CAPACITY];
+
   bool halt;
 };
 
@@ -129,6 +142,9 @@ void hvm_load_program_from_memory(Hvm *hvm, Inst *program, size_t program_size);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 void hvm_save_program_to_file(const Hvm *hvm, const char *file_path);
 
+// TODO: rename the notion of a "label" to "binding"
+// So it will cause the renaming of `%label` directive to `%bind` which IMO
+// makes more sense.
 typedef struct {
   String_View name;
   Word word;
@@ -144,6 +160,8 @@ typedef struct {
   size_t labels_size;
   Deferred_Operand deferred_operands[HACK_DEFERRED_OPERANDS_CAPACITY];
   size_t deferred_operands_size;
+  // TODO: Hack::memory is not the same thing as Hvm::memory
+  // We may want to do some renamine to avoid the confusion in the future.
   char memory[HACK_MEMORY_CAPACITY];
   size_t memory_size;
 } Hack;
@@ -219,6 +237,22 @@ bool inst_has_operand(Inst_Type type) {
   case INST_SHL:
     return false;
   case INST_NOTB:
+    return false;
+  case INST_READ8:
+    return false;
+  case INST_READ16:
+    return false;
+  case INST_READ32:
+    return false;
+  case INST_READ64:
+    return false;
+  case INST_WRITE8:
+    return false;
+  case INST_WRITE16:
+    return false;
+  case INST_WRITE32:
+    return false;
+  case INST_WRITE64:
     return false;
   case NUMBER_OF_INSTS:
   default:
@@ -296,6 +330,22 @@ const char *inst_name(Inst_Type type) {
     return "shl";
   case INST_NOTB:
     return "notb";
+  case INST_READ8:
+    return "read8";
+  case INST_READ16:
+    return "read16";
+  case INST_READ32:
+    return "read32";
+  case INST_READ64:
+    return "read64";
+  case INST_WRITE8:
+    return "write8";
+  case INST_WRITE16:
+    return "write16";
+  case INST_WRITE32:
+    return "write32";
+  case INST_WRITE64:
+    return "write64";
   case NUMBER_OF_INSTS:
   default:
     assert(false && "inst_name: unreachable");
@@ -319,6 +369,8 @@ const char *err_as_cstr(Err err) {
     return "ERR_ILLEGAL_INST_ACCESS";
   case ERR_DIV_BY_ZERO:
     return "ERR_DIV_BY_ZERO";
+  case ERR_ILLEGAL_MEMORY_ACCESS:
+    return "ERR_ILLEGAL_MEMORY_ACCESS";
   default:
     assert(false && "err_as_cstr: Unreachable");
     exit(1);
@@ -505,7 +557,7 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->ip += 1;
     break;
 
-  // TODO(#40): Inconsistency between gef and minus* instructions operand
+  // TODO(#7): Inconsistency between gef and minus* instructions operand
   // ordering
   case INST_GEF:
     if (hvm->stack_size < 2) {
@@ -642,6 +694,116 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->ip += 1;
     break;
 
+  case INST_READ8: {
+    if (hvm->stack_size < 1) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    const Memory_Addr addr = hvm->stack[hvm->stack_size - 1].as_u64;
+    if (addr >= HVM_MEMORY_CAPACITY) {
+      return ERR_ILLEGAL_MEMORY_ACCESS;
+    }
+    hvm->stack[hvm->stack_size - 1].as_u64 = hvm->memory[addr];
+    hvm->ip += 1;
+  } break;
+
+  case INST_READ16: {
+    if (hvm->stack_size < 1) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    const Memory_Addr addr = hvm->stack[hvm->stack_size - 1].as_u64;
+    if (addr >= HVM_MEMORY_CAPACITY - 1) {
+      return ERR_ILLEGAL_MEMORY_ACCESS;
+    }
+    hvm->stack[hvm->stack_size - 1].as_u64 = *(uint16_t *)&hvm->memory[addr];
+    hvm->ip += 1;
+  } break;
+
+  case INST_READ32: {
+    if (hvm->stack_size < 1) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    const Memory_Addr addr = hvm->stack[hvm->stack_size - 1].as_u64;
+    if (addr >= HVM_MEMORY_CAPACITY - 3) {
+      return ERR_ILLEGAL_MEMORY_ACCESS;
+    }
+    hvm->stack[hvm->stack_size - 1].as_u64 = *(uint32_t *)&hvm->memory[addr];
+    hvm->ip += 1;
+  } break;
+
+  case INST_READ64: {
+    if (hvm->stack_size < 1) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    const Memory_Addr addr = hvm->stack[hvm->stack_size - 1].as_u64;
+    if (addr >= HVM_MEMORY_CAPACITY - 7) {
+      return ERR_ILLEGAL_MEMORY_ACCESS;
+    }
+    hvm->stack[hvm->stack_size - 1].as_u64 = *(uint64_t *)&hvm->memory[addr];
+    hvm->ip += 1;
+  } break;
+
+  case INST_WRITE8: {
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    const Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
+    if (addr >= HVM_MEMORY_CAPACITY) {
+      return ERR_ILLEGAL_MEMORY_ACCESS;
+    }
+    hvm->memory[addr] = (uint8_t)hvm->stack[hvm->stack_size - 1].as_u64;
+    hvm->stack_size -= 2;
+    hvm->ip += 1;
+  } break;
+
+  case INST_WRITE16: {
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    const Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
+    if (addr >= HVM_MEMORY_CAPACITY - 1) {
+      return ERR_ILLEGAL_MEMORY_ACCESS;
+    }
+    *(uint16_t *)&hvm->memory[addr] =
+        (uint16_t)hvm->stack[hvm->stack_size - 1].as_u64;
+    hvm->stack_size -= 2;
+    hvm->ip += 1;
+  } break;
+
+  case INST_WRITE32: {
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    const Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
+    if (addr >= HVM_MEMORY_CAPACITY - 3) {
+      return ERR_ILLEGAL_MEMORY_ACCESS;
+    }
+    *(uint32_t *)&hvm->memory[addr] =
+        (uint32_t)hvm->stack[hvm->stack_size - 1].as_u64;
+    hvm->stack_size -= 2;
+    hvm->ip += 1;
+  } break;
+
+  case INST_WRITE64: {
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    const Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
+    if (addr >= HVM_MEMORY_CAPACITY - 7) {
+      return ERR_ILLEGAL_MEMORY_ACCESS;
+    }
+    *(uint64_t *)&hvm->memory[addr] = hvm->stack[hvm->stack_size - 1].as_u64;
+    hvm->stack_size -= 2;
+    hvm->ip += 1;
+  } break;
+
   case NUMBER_OF_INSTS:
   default:
     return ERR_ILLEGAL_INST;
@@ -697,7 +859,7 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
     exit(1);
   }
 
-  assert(m % sizeof(hvm->program[0]) == 0);
+  assert((size_t)m % sizeof(hvm->program[0]) == 0);
   assert((size_t)m <= HVM_PROGRAM_CAPACITY * sizeof(hvm->program[0]));
 
   if (fseek(f, 0, SEEK_SET) < 0) {
@@ -707,7 +869,7 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
   }
 
   hvm->program_size = fread(hvm->program, sizeof(hvm->program[0]),
-                            m / sizeof(hvm->program[0]), f);
+                            (size_t)m / sizeof(hvm->program[0]), f);
 
   if (ferror(f)) {
     fprintf(stderr, "ERROR: Could not consume file %s: %s\n", file_path,
@@ -889,7 +1051,7 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
             }
 
             if (!hack_bind_label(hack, label, word)) {
-              // TODO(#51): label redefinition error does not tell where the
+              // TODO(#14): label redefinition error does not tell where the
               // first label was already defined
               fprintf(
                   stderr, "%.*s:%d: ERROR: label `%.*s` is already defined\n",
@@ -993,7 +1155,7 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
     if (!hack_resolve_label(
             hack, label,
             &hvm->program[hack->deferred_operands[i].addr].operand)) {
-      // TODO(#52): second pass label resolution errors don't report the
+      // TODO(#15): second pass label resolution errors don't report the
       // location in the source code
       fprintf(stderr, "%.*s: ERROR: unknown label `%.*s`\n",
               SV_FORMAT(input_file_path), SV_FORMAT(label));
@@ -1034,7 +1196,7 @@ String_View hack_slurp_file(Hack *hack, String_View file_path) {
     exit(1);
   }
 
-  char *buffer = hack_alloc(hack, m);
+  char *buffer = hack_alloc(hack, (size_t)m);
   if (buffer == NULL) {
     fprintf(stderr, "ERROR: Could not allocate memory for file: %s\n",
             strerror(errno));
@@ -1047,7 +1209,7 @@ String_View hack_slurp_file(Hack *hack, String_View file_path) {
     exit(1);
   }
 
-  size_t n = fread(buffer, 1, m, f);
+  size_t n = fread(buffer, 1, (size_t)m, f);
   if (ferror(f)) {
     fprintf(stderr, "ERROR: Could not read file `%s`: %s\n", file_path_cstr,
             strerror(errno));
