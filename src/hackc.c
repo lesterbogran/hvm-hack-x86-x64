@@ -36,7 +36,5 @@ int main(int argc, char **argv) {
   hvm_translate_source(&hvm, &hack, cstr_as_sv(input_file_path), 0);
   hvm_save_program_to_file(&hvm, output_file_path);
   
-  printf("Consumed %" PRId64 " bytes of memory\n", hack.memory_size);
-
   return 0;
 }
