@@ -160,7 +160,7 @@ typedef struct {
   size_t labels_size;
   Deferred_Operand deferred_operands[HACK_DEFERRED_OPERANDS_CAPACITY];
   size_t deferred_operands_size;
-  // TODO: Hack::memory is not the same thing as Hvm::memory
+  // TODO(#20): Hack::memory is not the same thing as Hvm::memory
   // We may want to do some renamine to avoid the confusion in the future.
   char memory[HACK_MEMORY_CAPACITY];
   size_t memory_size;
