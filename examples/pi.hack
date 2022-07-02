@@ -1,3 +1,5 @@
+%include "examples/natives.hack"
+
 ;
 ; π = (4/1) - (4/3) + (4/5) - (4/7) + (4/9) - (4/11) + (4/13) - (4/15) ...
 ; Take 4 and subtract 4 divided by 3. Then add 4 divided by 5.
@@ -5,12 +7,6 @@
 ; and subtracting fractions with a numerator of 4 and a denominator of each
 ; subsequent odd number. The more times you do this, the closer you will get to pi.
 ;
-
-; TODO(#2): extern native functions declarations for hack files
-; ---
-; extern alloc     0
-; extern free      1
-; extern print_f64 2
 
 push 4.0        ; acc (result of first division 4/1)
 push 3.0        ; denominator
@@ -56,6 +52,6 @@ loop:
 ; clean the stack and only have pi left
 drop
 drop
-native 2        ; print the value
+native print_f64        ; print the value
 
 halt

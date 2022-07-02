@@ -1,3 +1,5 @@
+%include "./examples/natives.hack"
+
 push 1
 push 2
 push 3
