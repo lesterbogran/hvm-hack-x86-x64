@@ -198,7 +198,7 @@ String_View hack_slurp_file(Hack *hack, String_View file_path);
 bool hack_resolve_binding(const Hack *hack, String_View name, Word *output);
 bool hack_bind_value(Hack *hack, String_View name, Word word);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name);
-bool hack_number_literal_as_word(Hack *hack, String_View sv, Word *output);
+bool hack_translate_literal(Hack *hack, String_View sv, Word *output);
 void hack_save_to_file(Hack *hack, const char *file_path);
 void hack_translate_source(Hack *hack, String_View input_file_path,
                            size_t level);
@@ -1045,7 +1045,7 @@ void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name) {
       (Deferred_Operand){.addr = addr, .name = name};
 }
 
-bool hack_number_literal_as_word(Hack *hack, String_View sv, Word *output) {
+bool hack_translate_literal(Hack *hack, String_View sv, Word *output) {
   char *cstr = hack_alloc(hack, sv.count + 1);
   memcpy(cstr, sv.data, sv.count);
   cstr[sv.count] = '\0';
@@ -1130,7 +1130,7 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
             line = sv_trim(line);
             String_View value = sv_chop_by_delim(&line, ' ');
             Word word = {0};
-            if (!hack_number_literal_as_word(hack, value, &word)) {
+            if (!hack_translate_literal(hack, value, &word)) {
               fprintf(stderr, "%.*s:%d: ERROR: `%.*s` is not a number",
                       SV_FORMAT(input_file_path), line_number,
                       SV_FORMAT(value));
@@ -1219,7 +1219,7 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
                 exit(1);
               }
 
-              if (!hack_number_literal_as_word(
+              if (!hack_translate_literal(
                       hack, operand,
                       &hack->program[hack->program_size].operand)) {
                 hack_push_deferred_operand(hack, hack->program_size, operand);
