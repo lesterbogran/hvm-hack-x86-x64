@@ -200,6 +200,7 @@ bool hack_bind_value(Hack *hack, String_View name, Word word);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name);
 bool hack_translate_literal(Hack *hack, String_View sv, Word *output);
 void hack_save_to_file(Hack *hack, const char *file_path);
+Word hack_push_string_to_memory(Hack *hack, String_View sv);
 void hack_translate_source(Hack *hack, String_View input_file_path,
                            size_t level);
 
@@ -1045,23 +1046,45 @@ void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name) {
       (Deferred_Operand){.addr = addr, .name = name};
 }
 
-bool hack_translate_literal(Hack *hack, String_View sv, Word *output) {
-  char *cstr = hack_alloc(hack, sv.count + 1);
-  memcpy(cstr, sv.data, sv.count);
-  cstr[sv.count] = '\0';
+Word hack_push_string_to_memory(Hack *hack, String_View sv) {
+  assert(hack->memory_size + sv.count <= HVM_MEMORY_CAPACITY);
 
-  char *endptr = 0;
-  Word result = {0};
+  Word result = word_u64(hack->memory_size);
+  memcpy(hack->memory + hack->memory_size, sv.data, sv.count);
+  hack->memory_size += sv.count;
 
-  result.as_u64 = strtoull(cstr, &endptr, 10);
-  if ((size_t)(endptr - cstr) != sv.count) {
-    result.as_f64 = strtod(cstr, &endptr);
-    if ((size_t)(endptr - cstr) != sv.count) {
-      return false;
-    }
+  if (hack->memory_size > hack->memory_capacity) {
+    hack->memory_capacity = hack->memory_size;
   }
 
-  *output = result;
+  return result;
+}
+
+bool hack_translate_literal(Hack *hack, String_View sv, Word *output) {
+  if (sv.count >= 2 && *sv.data == '"' && sv.data[sv.count - 1] == '"') {
+    // TODO: string literals don't support escaped characters
+    sv.data += 1;
+    sv.count -= 2;
+
+    *output = hack_push_string_to_memory(hack, sv);
+  } else {
+    char *cstr = hack_alloc(hack, sv.count + 1);
+    memcpy(cstr, sv.data, sv.count);
+    cstr[sv.count] = '\0';
+
+    char *endptr = 0;
+    Word result = {0};
+
+    result.as_u64 = strtoull(cstr, &endptr, 10);
+    if ((size_t)(endptr - cstr) != sv.count) {
+      result.as_f64 = strtod(cstr, &endptr);
+      if ((size_t)(endptr - cstr) != sv.count) {
+        return false;
+      }
+    }
+
+    *output = result;
+  }
   return true;
 }
 
@@ -1128,7 +1151,7 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
           String_View name = sv_chop_by_delim(&line, ' ');
           if (name.count > 0) {
             line = sv_trim(line);
-            String_View value = sv_chop_by_delim(&line, ' ');
+            String_View value = line;
             Word word = {0};
             if (!hack_translate_literal(hack, value, &word)) {
               fprintf(stderr, "%.*s:%d: ERROR: `%.*s` is not a number",
