@@ -4,7 +4,8 @@
 #if defined(__GNUC__) || defined(__clang__)
 #define PACK(__Declaration__) __Declaration__ __attribute__((__packed__))
 #elif defined(_MSC_VER)
-#define PACK(__Declaration__) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop) ))
+#define PACK(__Declaration__)                                                  \
+  __pragma(pack(push, 1)) __Declaration__ __pragma(pack(pop))
 #else
 #error                                                                         \
     "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and submit a Pull Request at https://github.com/frexsdev/hvm"
