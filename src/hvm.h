@@ -1,6 +1,14 @@
 #ifndef HVM_H_
 #define HVM_H_
 
+#if defined(__GNUC__) || defined(__clang__)
+#define PACKED __attribute__((packed))
+#else
+#warning                                                                       \
+    "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and submit a Pull Request at https://github.com/frexsdev/hvm"
+#define PACKED
+#endif
+
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -146,6 +154,17 @@ void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_memory(Hvm *hvm, Inst *program, size_t program_size);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 void hvm_save_program_to_file(const Hvm *hvm, const char *file_path);
+
+#define HAR_MAGIC 0x4D5648
+#define HAR_VERSION 1
+
+typedef struct {
+  uint32_t magic;
+  uint16_t version;
+  uint64_t program_size;
+  uint64_t memory_size;
+  uint64_t memory_capacity;
+} PACKED Har_Meta;
 
 typedef struct {
   String_View name;
@@ -1043,8 +1062,29 @@ void hack_save_to_file(Hack *hack, const char *file_path) {
     exit(1);
   }
 
-  fwrite(hack->program, sizeof(hack->program[0]), hack->program_size, f);
+  Har_Meta meta = {
+      .magic = HAR_MAGIC,
+      .version = HAR_VERSION,
+      .program_size = hack->program_size,
+      .memory_size = hack->memory_size,
+      .memory_capacity = hack->memory_capacity,
+  };
 
+  fwrite(&meta, sizeof(meta), 1, f);
+  if (ferror(f)) {
+    fprintf(stderr, "ERROR: Could not write to file `%s`: %s\n", file_path,
+            strerror(errno));
+    exit(1);
+  }
+
+  fwrite(hack->program, sizeof(hack->program[0]), hack->program_size, f);
+  if (ferror(f)) {
+    fprintf(stderr, "ERROR: Could not write to file `%s`: %s\n", file_path,
+            strerror(errno));
+    exit(1);
+  }
+
+  fwrite(hack->memory, sizeof(hack->memory[0]), hack->memory_size, f);
   if (ferror(f)) {
     fprintf(stderr, "ERROR: Could not write to file `%s`: %s\n", file_path,
             strerror(errno));
