@@ -6,6 +6,7 @@ The hacker Virtual Machine
 
 ```console
 $ ./build.sh        # or `./build_msvc.bat examples` if you are on Windows
+$ ./hack -i ./examples/hello.har
 $ ./hack -i ./examples/fib.har
 $ ./hack -i ./examples/e.har
 $ ./hack -i ./examples/pi.har
