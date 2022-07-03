@@ -101,6 +101,28 @@ static Err hvm_dump_memory(Hvm *hvm) {
   return ERR_OK;
 }
 
+static Err hvm_write(Hvm *hvm) {
+  if (hvm->stack_size < 2) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
+  uint64_t count = hvm->stack[hvm->stack_size - 1].as_u64;
+
+  if (addr >= HVM_MEMORY_CAPACITY) {
+    return ERR_ILLEGAL_MEMORY_ACCESS;
+  }
+
+  if (addr + count < addr || addr + count >= HVM_MEMORY_CAPACITY) {
+    return ERR_ILLEGAL_MEMORY_ACCESS;
+  }
+
+  fwrite(&hvm->memory[addr], sizeof(hvm->memory[0]), count, stdout);
+
+  hvm->stack_size -= 2;
+  return ERR_OK;
+}
+
 // TODO(#17): implement gdb-style (but better of course) debugger for hvm
 // TODO(#18): rot13 example that read/write data from/to the hvm memory
 
@@ -156,6 +178,7 @@ int main(int argc, char **argv) {
   hvm_push_native(&hvm, hvm_print_u64);   // 4
   hvm_push_native(&hvm, hvm_print_ptr);   // 5
   hvm_push_native(&hvm, hvm_dump_memory); // 6
+  hvm_push_native(&hvm, hvm_write);       // 7
 
   if (!debug) {
     Err err = hvm_execute_program(&hvm, limit);
