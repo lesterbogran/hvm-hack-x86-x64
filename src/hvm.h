@@ -152,7 +152,6 @@ Err hvm_execute_program(Hvm *hvm, int limit);
 void hvm_push_native(Hvm *hvm, Hvm_Native native);
 void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
-void hvm_save_program_to_file(const Hvm *hvm, const char *file_path);
 
 #define HAR_MAGIC 0x4D5648
 #define HAR_VERSION 1
@@ -902,25 +901,6 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
 
   if (ferror(f)) {
     fprintf(stderr, "ERROR: Could not consume file %s: %s\n", file_path,
-            strerror(errno));
-    exit(1);
-  }
-
-  fclose(f);
-}
-
-void hvm_save_program_to_file(const Hvm *hvm, const char *file_path) {
-  FILE *f = fopen(file_path, "wb");
-  if (f == NULL) {
-    fprintf(stderr, "ERROR: Could not open file `%s`: %s\n", file_path,
-            strerror(errno));
-    exit(1);
-  }
-
-  fwrite(hvm->program, sizeof(hvm->program[0]), hvm->program_size, f);
-
-  if (ferror(f)) {
-    fprintf(stderr, "ERROR: Could not write to file `%s`: %s\n", file_path,
             strerror(errno));
     exit(1);
   }
