@@ -874,34 +874,73 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
     exit(1);
   }
 
-  if (fseek(f, 0, SEEK_END) < 0) {
-    fprintf(stderr, "ERROR: Could not set position at end of file %s: %s\n",
+  Har_Meta meta = {0};
+
+  size_t n = fread(&meta, sizeof(meta), 1, f);
+  if (n < 1) {
+    fprintf(stderr, "ERROR: Could not read meta data from file `%s`: %s\n",
             file_path, strerror(errno));
     exit(1);
   }
 
-  long m = ftell(f);
-  if (m < 0) {
-    fprintf(stderr, "ERROR: Could not determine length of file %s: %s\n",
-            file_path, strerror(errno));
+  if (meta.magic != HAR_MAGIC) {
+    fprintf(stderr,
+            "ERROR: %s does not appear to be a valid Har file. "
+            "Unexpected magic %04X. expected %04X\n",
+            file_path, meta.magic, HAR_MAGIC);
     exit(1);
   }
 
-  assert((size_t)m % sizeof(hvm->program[0]) == 0);
-  assert((size_t)m <= HVM_PROGRAM_CAPACITY * sizeof(hvm->program[0]));
-
-  if (fseek(f, 0, SEEK_SET) < 0) {
-    fprintf(stderr, "ERROR: Could not rewind file %s: %s\n", file_path,
-            strerror(errno));
+  if (meta.version != HAR_VERSION) {
+    fprintf(stderr,
+            "ERROR: %s: unsupported version of Har file %d. Expected "
+            "version %d",
+            file_path, meta.version, HAR_VERSION);
     exit(1);
   }
 
-  hvm->program_size = fread(hvm->program, sizeof(hvm->program[0]),
-                            (size_t)m / sizeof(hvm->program[0]), f);
+  if (meta.program_size > HVM_PROGRAM_CAPACITY) {
+    fprintf(stderr,
+            "ERROR: %s: program section is too big. The file contains %" PRIu64
+            " program instruction. But the capacity is %" PRIu64 "\n",
+            file_path, meta.program_size, (uint64_t)HVM_PROGRAM_CAPACITY);
+    exit(1);
+  }
 
-  if (ferror(f)) {
-    fprintf(stderr, "ERROR: Could not consume file %s: %s\n", file_path,
-            strerror(errno));
+  if (meta.memory_capacity > HVM_PROGRAM_CAPACITY) {
+    fprintf(stderr,
+            "ERROR: %s: memory section is too big. The file wants %" PRIu64
+            " bytes. But the capacity is %" PRIu64 " bytes\n",
+            file_path, meta.memory_capacity, (uint64_t)HVM_MEMORY_CAPACITY);
+    exit(1);
+  }
+
+  if (meta.memory_size > meta.memory_capacity) {
+    fprintf(stderr,
+            "ERROR: %s: memory size %" PRIu64
+            " is greater than declared memory capacity %" PRIu64 ".\n",
+            file_path, meta.memory_size, meta.memory_capacity);
+    exit(1);
+  }
+
+  hvm->program_size =
+      fread(hvm->program, sizeof(hvm->program[0]), meta.program_size, f);
+
+  if (hvm->program_size != meta.program_size) {
+    fprintf(stderr,
+            "ERROR: %s: read %zd program instructions, but expected %" PRIu64
+            ".\n",
+            file_path, hvm->program_size, meta.program_size);
+    exit(1);
+  }
+
+  n = fread(hvm->memory, sizeof(hvm->memory[0]), meta.memory_size, f);
+
+  if (n != meta.memory_size) {
+    fprintf(stderr,
+            "ERROR: %s: read %zd bytes of memory section, but expected %" PRIu64
+            " bytes.\n",
+            file_path, n, meta.memory_size);
     exit(1);
   }
 
