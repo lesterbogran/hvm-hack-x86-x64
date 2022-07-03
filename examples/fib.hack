@@ -1,6 +1,6 @@
 ;; TODO(#16): hack include directive has no support for include paths
 %include "./examples/natives.hack"
-%label N 30
+%bind N 30
 
 ; N-1
 ; F_1+F_0

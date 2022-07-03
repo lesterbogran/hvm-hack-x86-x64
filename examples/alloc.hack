@@ -1,5 +1,5 @@
 %include "./examples/natives.hack"
-%label MEMORY_SIZE 420
+%bind MEMORY_SIZE 420
 
 push MEMORY_SIZE 
 native alloc

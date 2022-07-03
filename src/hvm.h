@@ -16,7 +16,7 @@
 #define HVM_NATIVES_CAPACITY 1024
 #define HVM_MEMORY_CAPACITY (640 * 1000)
 
-#define HACK_LABEL_CAPACITY 1024
+#define HACK_BINDINGS_CAPACITY 1024
 #define HACK_DEFERRED_OPERANDS_CAPACITY 1024
 #define HACK_COMMENT_SYMBOL ';'
 #define HACK_PP_SYMBOL '%'
@@ -142,22 +142,19 @@ void hvm_load_program_from_memory(Hvm *hvm, Inst *program, size_t program_size);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 void hvm_save_program_to_file(const Hvm *hvm, const char *file_path);
 
-// TODO(#19): rename the notion of a "label" to "binding"
-// So it will cause the renaming of `%label` directive to `%bind` which IMO
-// makes more sense.
 typedef struct {
   String_View name;
-  Word word;
-} Label;
+  Word value;
+} Binding;
 
 typedef struct {
   Inst_Addr addr;
-  String_View label;
+  String_View name;
 } Deferred_Operand;
 
 typedef struct {
-  Label labels[HACK_LABEL_CAPACITY];
-  size_t labels_size;
+  Binding bindings[HACK_BINDINGS_CAPACITY];
+  size_t bindings_size;
   Deferred_Operand deferred_operands[HACK_DEFERRED_OPERANDS_CAPACITY];
   size_t deferred_operands_size;
   // NOTE: https://en.wikipedia.org/wiki/Region-based_memory_management
@@ -167,9 +164,9 @@ typedef struct {
 
 void *hack_alloc(Hack *hack, size_t size);
 String_View hack_slurp_file(Hack *hack, String_View file_path);
-bool hack_resolve_label(const Hack *hack, String_View name, Word *output);
-bool hack_bind_label(Hack *hack, String_View name, Word word);
-void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View label);
+bool hack_resolve_binding(const Hack *hack, String_View name, Word *output);
+bool hack_bind_value(Hack *hack, String_View name, Word word);
+void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name);
 bool hack_number_literal_as_word(Hack *hack, String_View sv, Word *output);
 
 void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
@@ -966,10 +963,10 @@ void *hack_alloc(Hack *hack, size_t size) {
   return result;
 }
 
-bool hack_resolve_label(const Hack *hack, String_View name, Word *output) {
-  for (size_t i = 0; i < hack->labels_size; ++i) {
-    if (sv_eq(hack->labels[i].name, name)) {
-      *output = hack->labels[i].word;
+bool hack_resolve_binding(const Hack *hack, String_View name, Word *output) {
+  for (size_t i = 0; i < hack->bindings_size; ++i) {
+    if (sv_eq(hack->bindings[i].name, name)) {
+      *output = hack->bindings[i].value;
       return true;
     }
   }
@@ -977,22 +974,23 @@ bool hack_resolve_label(const Hack *hack, String_View name, Word *output) {
   return false;
 }
 
-bool hack_bind_label(Hack *hack, String_View name, Word word) {
-  assert(hack->labels_size < HACK_LABEL_CAPACITY);
+bool hack_bind_value(Hack *hack, String_View name, Word value) {
+  assert(hack->bindings_size < HACK_BINDINGS_CAPACITY);
 
   Word ignore = {0};
-  if (hack_resolve_label(hack, name, &ignore)) {
+  if (hack_resolve_binding(hack, name, &ignore)) {
     return false;
   }
 
-  hack->labels[hack->labels_size++] = (Label){.name = name, .word = word};
+  hack->bindings[hack->bindings_size++] =
+      (Binding){.name = name, .value = value};
   return true;
 }
 
-void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View label) {
+void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name) {
   assert(hack->deferred_operands_size < HACK_DEFERRED_OPERANDS_CAPACITY);
   hack->deferred_operands[hack->deferred_operands_size++] =
-      (Deferred_Operand){.addr = addr, .label = label};
+      (Deferred_Operand){.addr = addr, .name = name};
 }
 
 bool hack_number_literal_as_word(Hack *hack, String_View sv, Word *output) {
@@ -1035,10 +1033,10 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
       if (token.count > 0 && *token.data == HACK_PP_SYMBOL) {
         token.count -= 1;
         token.data += 1;
-        if (sv_eq(token, sv_from_cstr("label"))) {
+        if (sv_eq(token, sv_from_cstr("bind"))) {
           line = sv_trim(line);
-          String_View label = sv_chop_by_delim(&line, ' ');
-          if (label.count > 0) {
+          String_View name = sv_chop_by_delim(&line, ' ');
+          if (name.count > 0) {
             line = sv_trim(line);
             String_View value = sv_chop_by_delim(&line, ' ');
             Word word = {0};
@@ -1049,16 +1047,15 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
               exit(1);
             }
 
-            if (!hack_bind_label(hack, label, word)) {
+            if (!hack_bind_value(hack, name, word)) {
               // TODO(#14): label redefinition error does not tell where the
               // first label was already defined
-              fprintf(
-                  stderr, "%.*s:%d: ERROR: label `%.*s` is already defined\n",
-                  SV_FORMAT(input_file_path), line_number, SV_FORMAT(label));
+              fprintf(stderr, "%.*s:%d: ERROR: name `%.*s` is already bound\n",
+                      SV_FORMAT(input_file_path), line_number, SV_FORMAT(name));
               exit(1);
             }
           } else {
-            fprintf(stderr, "%.*s:%d: ERROR: label name is not provided\n",
+            fprintf(stderr, "%.*s:%d: ERROR: binding name is not provided\n",
                     SV_FORMAT(input_file_path), line_number);
             exit(1);
           }
@@ -1098,14 +1095,16 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
           exit(1);
         }
       } else {
-        // Label
+        // Label binding
         if (token.count > 0 && token.data[token.count - 1] == ':') {
           String_View label = {.count = token.count - 1, .data = token.data};
 
-          if (!hack_bind_label(hack, label,
+          if (!hack_bind_value(hack, label,
                                (Word){.as_u64 = hvm->program_size})) {
-            fprintf(stderr, "%.*s:%d: ERROR: label `%.*s` is already defined\n",
-                    SV_FORMAT(input_file_path), line_number, SV_FORMAT(label));
+            fprintf(
+                stderr,
+                "%.*s:%d: ERROR: name `%.*s` is already bound to something\n",
+                SV_FORMAT(input_file_path), line_number, SV_FORMAT(label));
             exit(1);
           }
 
@@ -1150,14 +1149,14 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
 
   // Second pass
   for (size_t i = 0; i < hack->deferred_operands_size; ++i) {
-    String_View label = hack->deferred_operands[i].label;
-    if (!hack_resolve_label(
-            hack, label,
+    String_View name = hack->deferred_operands[i].name;
+    if (!hack_resolve_binding(
+            hack, name,
             &hvm->program[hack->deferred_operands[i].addr].operand)) {
       // TODO(#15): second pass label resolution errors don't report the
       // location in the source code
-      fprintf(stderr, "%.*s: ERROR: unknown label `%.*s`\n",
-              SV_FORMAT(input_file_path), SV_FORMAT(label));
+      fprintf(stderr, "%.*s: ERROR: unknown binding `%.*s`\n",
+              SV_FORMAT(input_file_path), SV_FORMAT(name));
       exit(1);
     }
   }
