@@ -3,7 +3,7 @@
 
 ;; TODO(#21): hack does not support string literals
 
-%label N 256
+%bind N 256
 
     push 0        ; i
 loop:
