@@ -2,11 +2,12 @@
 #define HVM_H_
 
 #if defined(__GNUC__) || defined(__clang__)
-#define PACKED __attribute__((packed))
+#define PACK(__Declaration__) __Declaration__ __attribute__((__packed__))
+#elif defined(_MSC_VER)
+#define PACK(__Declaration__) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop) ))
 #else
-#warning                                                                       \
+#error                                                                         \
     "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and submit a Pull Request at https://github.com/frexsdev/hvm"
-#define PACKED
 #endif
 
 #include <assert.h>
@@ -156,13 +157,15 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 #define HAR_MAGIC 0x4D5648
 #define HAR_VERSION 1
 
-typedef struct {
+PACK(struct Har_Meta {
   uint32_t magic;
   uint16_t version;
   uint64_t program_size;
   uint64_t memory_size;
   uint64_t memory_capacity;
-} PACKED Har_Meta;
+});
+
+typedef struct Har_Meta Har_Meta;
 
 typedef struct {
   String_View name;
