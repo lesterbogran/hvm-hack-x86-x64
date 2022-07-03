@@ -1,16 +1,6 @@
 #ifndef HVM_H_
 #define HVM_H_
 
-#if defined(__GNUC__) || defined(__clang__)
-#define PACK(__Declaration__) __Declaration__ __attribute__((__packed__))
-#elif defined(_MSC_VER)
-#define PACK(__Declaration__)                                                  \
-  __pragma(pack(push, 1)) __Declaration__ __pragma(pack(pop))
-#else
-#error                                                                         \
-    "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and submit a Pull Request at https://github.com/frexsdev/hvm"
-#endif
-
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
@@ -20,6 +10,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// NOTE: Stolen from https://stackoverflow.com/a/3312896
+#if defined(__GNUC__) || defined(__clang__)
+#define PACK(__Declaration__) __Declaration__ __attribute__((__packed__))
+#elif defined(_MSC_VER)
+#define PACK(__Declaration__)                                                  \
+  __pragma(pack(push, 1)) __Declaration__ __pragma(pack(pop))
+#else
+#error                                                                         \
+    "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and suhvmit a Pull Request to https://github.com/frexsdev/hvm"
+#endif
 
 #define HVM_STACK_CAPACITY 1024
 #define HVM_PROGRAM_CAPACITY 1024
@@ -203,7 +204,7 @@ bool hack_resolve_binding(const Hack *hack, String_View name, Word *output);
 bool hack_bind_value(Hack *hack, String_View name, Word word);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name);
 bool hack_translate_literal(Hack *hack, String_View sv, Word *output);
-void hack_save_to_file(Hack *hack, const char *file_path);
+void hack_save_to_file(Hack *hack, const char *output_file_path);
 Word hack_push_string_to_memory(Hack *hack, String_View sv);
 void hack_translate_source(Hack *hack, String_View input_file_path,
                            size_t level);
@@ -738,7 +739,6 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (hvm->stack_size < 1) {
       return ERR_STACK_UNDERFLOW;
     }
-
     const Memory_Addr addr = hvm->stack[hvm->stack_size - 1].as_u64;
     if (addr >= HVM_MEMORY_CAPACITY) {
       return ERR_ILLEGAL_MEMORY_ACCESS;
@@ -751,7 +751,6 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (hvm->stack_size < 1) {
       return ERR_STACK_UNDERFLOW;
     }
-
     const Memory_Addr addr = hvm->stack[hvm->stack_size - 1].as_u64;
     if (addr >= HVM_MEMORY_CAPACITY - 1) {
       return ERR_ILLEGAL_MEMORY_ACCESS;
@@ -764,7 +763,6 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (hvm->stack_size < 1) {
       return ERR_STACK_UNDERFLOW;
     }
-
     const Memory_Addr addr = hvm->stack[hvm->stack_size - 1].as_u64;
     if (addr >= HVM_MEMORY_CAPACITY - 3) {
       return ERR_ILLEGAL_MEMORY_ACCESS;
@@ -777,7 +775,6 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (hvm->stack_size < 1) {
       return ERR_STACK_UNDERFLOW;
     }
-
     const Memory_Addr addr = hvm->stack[hvm->stack_size - 1].as_u64;
     if (addr >= HVM_MEMORY_CAPACITY - 7) {
       return ERR_ILLEGAL_MEMORY_ACCESS;
@@ -790,7 +787,6 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
     }
-
     const Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
     if (addr >= HVM_MEMORY_CAPACITY) {
       return ERR_ILLEGAL_MEMORY_ACCESS;
@@ -804,7 +800,6 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
     }
-
     const Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
     if (addr >= HVM_MEMORY_CAPACITY - 1) {
       return ERR_ILLEGAL_MEMORY_ACCESS;
@@ -819,7 +814,6 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
     }
-
     const Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
     if (addr >= HVM_MEMORY_CAPACITY - 3) {
       return ERR_ILLEGAL_MEMORY_ACCESS;
@@ -834,7 +828,6 @@ Err hvm_execute_inst(Hvm *hvm) {
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
     }
-
     const Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
     if (addr >= HVM_MEMORY_CAPACITY - 7) {
       return ERR_ILLEGAL_MEMORY_ACCESS;
@@ -891,16 +884,16 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
   if (meta.magic != HAR_MAGIC) {
     fprintf(stderr,
             "ERROR: %s does not appear to be a valid Har file. "
-            "Unexpected magic %04X. expected %04X\n",
+            "Unexpected magic %04X. Expected %04X.\n",
             file_path, meta.magic, HAR_MAGIC);
     exit(1);
   }
 
   if (meta.version != HAR_VERSION) {
-    fprintf(stderr,
-            "ERROR: %s: unsupported version of Har file %d. Expected "
-            "version %d",
-            file_path, meta.version, HAR_VERSION);
+    fprintf(
+        stderr,
+        "ERROR: %s: unsupported version of Har file %d. Expected version %d.\n",
+        file_path, meta.version, HAR_VERSION);
     exit(1);
   }
 
@@ -912,7 +905,7 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
     exit(1);
   }
 
-  if (meta.memory_capacity > HVM_PROGRAM_CAPACITY) {
+  if (meta.memory_capacity > HVM_MEMORY_CAPACITY) {
     fprintf(stderr,
             "ERROR: %s: memory section is too big. The file wants %" PRIu64
             " bytes. But the capacity is %" PRIu64 " bytes\n",
@@ -923,7 +916,7 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
   if (meta.memory_size > meta.memory_capacity) {
     fprintf(stderr,
             "ERROR: %s: memory size %" PRIu64
-            " is greater than declared memory capacity %" PRIu64 ".\n",
+            " is greater than declared memory capacity %" PRIu64 "\n",
             file_path, meta.memory_size, meta.memory_capacity);
     exit(1);
   }
@@ -934,7 +927,7 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
   if (hvm->program_size != meta.program_size) {
     fprintf(stderr,
             "ERROR: %s: read %zd program instructions, but expected %" PRIu64
-            ".\n",
+            "\n",
             file_path, hvm->program_size, meta.program_size);
     exit(1);
   }
@@ -1069,7 +1062,6 @@ bool hack_translate_literal(Hack *hack, String_View sv, Word *output) {
     // TODO(#23): string literals don't support escaped characters
     sv.data += 1;
     sv.count -= 2;
-
     *output = hack_push_string_to_memory(hack, sv);
   } else {
     char *cstr = hack_alloc(hack, sv.count + 1);
@@ -1163,9 +1155,9 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
                       SV_FORMAT(value));
               exit(1);
             }
-            // TODO(#14): label redefinition error does not tell where the
 
             if (!hack_bind_value(hack, name, word)) {
+              // TODO(#14): label redefinition error does not tell where the
               // first label was already defined
               fprintf(stderr, "%.*s:%d: ERROR: name `%.*s` is already bound\n",
                       SV_FORMAT(input_file_path), line_number, SV_FORMAT(name));
