@@ -151,7 +151,6 @@ Err hvm_execute_inst(Hvm *hvm);
 Err hvm_execute_program(Hvm *hvm, int limit);
 void hvm_push_native(Hvm *hvm, Hvm_Native native);
 void hvm_dump_stack(FILE *stream, const Hvm *hvm);
-void hvm_load_program_from_memory(Hvm *hvm, Inst *program, size_t program_size);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 void hvm_save_program_to_file(const Hvm *hvm, const char *file_path);
 
@@ -866,13 +865,6 @@ void hvm_dump_stack(FILE *stream, const Hvm *hvm) {
   } else {
     fprintf(stream, "  [empty]\n");
   }
-}
-
-void hvm_load_program_from_memory(Hvm *hvm, Inst *program,
-                                  size_t program_size) {
-  assert(program_size < HVM_PROGRAM_CAPACITY);
-  memcpy(hvm->program, program, sizeof(program[0]) * program_size);
-  hvm->program_size = program_size;
 }
 
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
