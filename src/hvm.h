@@ -107,6 +107,11 @@ typedef union {
   void *as_ptr;
 } Word;
 
+Word word_u64(uint64_t u64);
+Word word_i64(int64_t i64);
+Word word_f64(double f64);
+Word word_ptr(void *ptr);
+
 static_assert(sizeof(Word) == 8, "The HVM's Word is expected to be 64 bits");
 
 typedef struct {
@@ -155,8 +160,17 @@ typedef struct {
 typedef struct {
   Binding bindings[HACK_BINDINGS_CAPACITY];
   size_t bindings_size;
+
   Deferred_Operand deferred_operands[HACK_DEFERRED_OPERANDS_CAPACITY];
   size_t deferred_operands_size;
+
+  Inst program[HVM_PROGRAM_CAPACITY];
+  uint64_t program_size;
+
+  uint8_t memory[HVM_MEMORY_CAPACITY];
+  size_t memory_size;
+  size_t memory_capacity;
+
   // NOTE: https://en.wikipedia.org/wiki/Region-based_memory_management
   char arena[HACK_ARENA_CAPACITY];
   size_t arena_size;
@@ -168,13 +182,21 @@ bool hack_resolve_binding(const Hack *hack, String_View name, Word *output);
 bool hack_bind_value(Hack *hack, String_View name, Word word);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name);
 bool hack_number_literal_as_word(Hack *hack, String_View sv, Word *output);
-
-void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
+void hack_save_to_file(Hack *hack, const char *file_path);
+void hack_translate_source(Hack *hack, String_View input_file_path,
                            size_t level);
 
 #endif // HVM_H_
 
 #ifdef HVM_IMPLEMENTATION
+
+Word word_u64(uint64_t u64) { return (Word){.as_u64 = u64}; }
+
+Word word_i64(int64_t i64) { return (Word){.as_i64 = i64}; }
+
+Word word_f64(double f64) { return (Word){.as_f64 = f64}; }
+
+Word word_ptr(void *ptr) { return (Word){.as_ptr = ptr}; }
 
 bool inst_has_operand(Inst_Type type) {
   switch (type) {
@@ -1013,17 +1035,34 @@ bool hack_number_literal_as_word(Hack *hack, String_View sv, Word *output) {
   return true;
 }
 
-void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
+void hack_save_to_file(Hack *hack, const char *file_path) {
+  FILE *f = fopen(file_path, "wb");
+  if (f == NULL) {
+    fprintf(stderr, "ERROR: Could not open file `%s`: %s\n", file_path,
+            strerror(errno));
+    exit(1);
+  }
+
+  fwrite(hack->program, sizeof(hack->program[0]), hack->program_size, f);
+
+  if (ferror(f)) {
+    fprintf(stderr, "ERROR: Could not write to file `%s`: %s\n", file_path,
+            strerror(errno));
+    exit(1);
+  }
+
+  fclose(f);
+}
+
+void hack_translate_source(Hack *hack, String_View input_file_path,
                            size_t level) {
   String_View original_source = hack_slurp_file(hack, input_file_path);
   String_View source = original_source;
 
-  hvm->program_size = 0;
   int line_number = 0;
 
   // First pass
   while (source.count > 0) {
-    assert(hvm->program_size < HVM_PROGRAM_CAPACITY);
     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
     line_number += 1;
     if (line.count > 0 && *line.data != HACK_COMMENT_SYMBOL) {
@@ -1046,9 +1085,9 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
                       SV_FORMAT(value));
               exit(1);
             }
+            // TODO(#14): label redefinition error does not tell where the
 
             if (!hack_bind_value(hack, name, word)) {
-              // TODO(#14): label redefinition error does not tell where the
               // first label was already defined
               fprintf(stderr, "%.*s:%d: ERROR: name `%.*s` is already bound\n",
                       SV_FORMAT(input_file_path), line_number, SV_FORMAT(name));
@@ -1074,7 +1113,7 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
                 exit(1);
               }
 
-              hack_translate_source(hvm, hack, line, level + 1);
+              hack_translate_source(hack, line, level + 1);
             } else {
               fprintf(stderr,
                       "%.*s:%d: ERROR: include file path has to be surrounded "
@@ -1099,8 +1138,7 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
         if (token.count > 0 && token.data[token.count - 1] == ':') {
           String_View label = {.count = token.count - 1, .data = token.data};
 
-          if (!hack_bind_value(hack, label,
-                               (Word){.as_u64 = hvm->program_size})) {
+          if (!hack_bind_value(hack, label, word_u64(hack->program_size))) {
             fprintf(
                 stderr,
                 "%.*s:%d: ERROR: name `%.*s` is already bound to something\n",
@@ -1118,7 +1156,8 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
 
           Inst_Type inst_type = INST_NOP;
           if (inst_by_name(token, &inst_type)) {
-            hvm->program[hvm->program_size].type = inst_type;
+            assert(hack->program_size < HVM_PROGRAM_CAPACITY);
+            hack->program[hack->program_size].type = inst_type;
 
             if (inst_has_operand(inst_type)) {
               if (operand.count == 0) {
@@ -1131,12 +1170,12 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
 
               if (!hack_number_literal_as_word(
                       hack, operand,
-                      &hvm->program[hvm->program_size].operand)) {
-                hack_push_deferred_operand(hack, hvm->program_size, operand);
+                      &hack->program[hack->program_size].operand)) {
+                hack_push_deferred_operand(hack, hack->program_size, operand);
               }
             }
 
-            hvm->program_size += 1;
+            hack->program_size += 1;
           } else {
             fprintf(stderr, "%.*s:%d: ERROR: unknown instruction `%.*s`\n",
                     SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
@@ -1152,7 +1191,7 @@ void hack_translate_source(Hvm *hvm, Hack *hack, String_View input_file_path,
     String_View name = hack->deferred_operands[i].name;
     if (!hack_resolve_binding(
             hack, name,
-            &hvm->program[hack->deferred_operands[i].addr].operand)) {
+            &hack->program[hack->deferred_operands[i].addr].operand)) {
       // TODO(#15): second pass label resolution errors don't report the
       // location in the source code
       fprintf(stderr, "%.*s: ERROR: unknown binding `%.*s`\n",

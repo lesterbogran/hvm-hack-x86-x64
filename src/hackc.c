@@ -1,7 +1,6 @@
 #define HVM_IMPLEMENTATION
 #include "./hvm.h"
 
-Hvm hvm = {0};
 Hack hack = {0};
 
 static char *shift(int *argc, char ***argv) {
@@ -33,8 +32,8 @@ int main(int argc, char **argv) {
   }
   const char *output_file_path = shift(&argc, &argv);
 
-  hack_translate_source(&hvm, &hack, sv_from_cstr(input_file_path), 0);
-  hvm_save_program_to_file(&hvm, output_file_path);
+  hack_translate_source(&hack, sv_from_cstr(input_file_path), 0);
+  hack_save_to_file(&hack, output_file_path);
 
   return 0;
 }
