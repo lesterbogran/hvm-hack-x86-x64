@@ -159,7 +159,7 @@ void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 
 #define HAR_MAGIC 0x4D5648
-#define HAR_VERSION 1
+#define HAR_VERSION 2
 
 PACK(struct Har_Meta {
   uint32_t magic;
@@ -1172,8 +1172,9 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
   // First pass
   while (source.count > 0) {
     String_View line = sv_trim(sv_chop_by_delim(&source, '\n'));
+    line = sv_trim(sv_chop_by_delim(&line, HACK_COMMENT_SYMBOL));
     line_number += 1;
-    if (line.count > 0 && *line.data != HACK_COMMENT_SYMBOL) {
+    if (line.count > 0) {
       String_View token = sv_trim(sv_chop_by_delim(&line, ' '));
 
       // Pre-processor
@@ -1259,9 +1260,7 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
 
         // Instruction
         if (token.count > 0) {
-          String_View operand =
-              sv_trim(sv_chop_by_delim(&line, HACK_COMMENT_SYMBOL));
-
+          String_View operand = line;
           Inst_Type inst_type = INST_NOP;
           if (inst_by_name(token, &inst_type)) {
             assert(hack->program_size < HVM_PROGRAM_CAPACITY);

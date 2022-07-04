@@ -1,5 +1,5 @@
 %include "./examples/natives.hack"
-%bind hello "Hello, World"
+%bind hello "Hello, World" ; message
 
 push hello
 push 12
