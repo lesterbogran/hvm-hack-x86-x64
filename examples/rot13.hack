@@ -3,8 +3,7 @@
 ; only this string needs to be changed
 %bind secret "Uryyb, jbeyq! Sebz EBG13."
 
-; TODO(#81): remove string length hack from rot13 example
-; After #77 is implemented
+; TODO(#24): remove string length hack from rot13 example
 ; ---
 ; this small hack will take care of length of strign
 %bind length ""
