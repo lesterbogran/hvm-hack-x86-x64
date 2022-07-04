@@ -1,6 +1,6 @@
 # hvm
 
-The hacker Virtual Machine
+Simple Virtual Machine with its own Bytecode and Assembly language.
 
 ## Quick Start
 
