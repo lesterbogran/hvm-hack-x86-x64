@@ -124,7 +124,6 @@ static Err hvm_write(Hvm *hvm) {
 }
 
 // TODO(#17): implement gdb-style (but better of course) debugger for hvm
-// TODO(#18): rot13 example that read/write data from/to the hvm memory
 
 int main(int argc, char **argv) {
   const char *program = shift(&argc, &argv);
