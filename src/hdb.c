@@ -292,7 +292,7 @@ int main(int argc, char **argv) {
       break;
 
     case 'b': {
-      // TODO: `b 0` in hdb results in "ERROR: Cannot parse address or
+      // TODO(#30): `b 0` in hdb results in "ERROR: Cannot parse address or
       // labels"
       char *addr = input_buf + 2;
       Inst_Addr break_addr;
