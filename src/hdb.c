@@ -322,7 +322,7 @@ int main(int argc, char **argv) {
     case 'r':
       if (!state.hvm.halt) {
         fprintf(stderr, "ERROR: Program is already running\n");
-        /* TODO: Reset hvm and restart program */
+        /* TODO(#31): Reset hvm and restart program */
       }
 
       state.hvm.halt = 0;
