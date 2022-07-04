@@ -5,12 +5,11 @@
     defined(__OpenBSD__) || defined(__DragonFly__)
 #include <limits.h>
 #else
-/* TODO(#26): find a better way to get PATH_MAX on unportable OSes
- *   Windows? -> MAX_PATH is obsolete
- *   Linux? -> PATH_MAX is not guaranteed to be available.
- *             This already causes CI build failures
- * NOTE: This issue also applies to hackc.c
- */
+// TODO: find a better way to get PATH_MAX on unportable OSes
+//   Windows? -> MAX_PATH is obsolete
+//   Linux? -> PATH_MAX is not guaranteed to be available.
+//             This already causes CI build failures
+// NOTE: This issue also applies to hackc.c
 #define PATH_MAX 4096
 #endif
 
@@ -101,12 +100,11 @@ Hdb_Err hdb_load_symtab(Hdb_State *state, const char *symtab_file) {
     String_View label_name = sv_chop_by_delim(&symtab, '\n');
     Inst_Addr addr = (Inst_Addr)sv_to_int(raw_addr);
 
-    /*
-     * Huh? you ask? Yes, if we have a label, whose size is bigger
-     * than the program size, which is to say, that it is a
-     * preprocessor label, then we don't wanna overrun our label
-     * storage buffer.
-     */
+    // Huh? you ask? Yes, if we have a label, whose size is bigger
+    // than the program size, which is to say, that it is a
+    // preprocessor label, then we don't wanna overrun our label
+    // storage buffer.
+
     if (addr < HVM_PROGRAM_CAPACITY) {
       state->labels[addr] = label_name;
     }
@@ -232,20 +230,17 @@ Hdb_Err hdb_parse_label_or_addr(Hdb_State *st, const char *in, Inst_Addr *out) {
   return HDB_OK;
 }
 
-/*
- * TODO(#27): support for native function in the debugger
- * TODO(#28): there is no way to examine the memory in hdb
- * TODO(#29): using String_View for parsing in hdb
- */
+// TODO: support for native function in the debugger
+// TODO: there is no way to examine the memory in hdb
+// TODO: using String_View for parsing in hdb
+
 int main(int argc, char **argv) {
   if (argc < 2) {
     usage();
     return EXIT_FAILURE;
   }
 
-  /*
-   * Create the HDB state and initialize it with the file names
-   */
+  // Create the HDB state and initialize it with the file names
 
   Hdb_State state = {0};
   state.hvm.halt = 1;
@@ -263,9 +258,8 @@ int main(int argc, char **argv) {
     fgets(input_buf, 32, stdin);
 
     switch (*input_buf) {
-    /*
-     * Next instruction
-     */
+
+    // Next instruction
     case 'n': {
       Hdb_Err err = hdb_step_instr(&state);
       if (err) {
@@ -277,22 +271,18 @@ int main(int argc, char **argv) {
       printf("\n");
     } break;
 
-    /*
-     * Print the IP
-     */
+    // Print the IP
     case 'i':
       printf("ip = %" PRIu64 "\n", state.hvm.ip);
       break;
 
-    /*
-     * Dump the stack
-     */
+    // Dump the stack
     case 's':
       hvm_dump_stack(stdout, &state.hvm);
       break;
 
     case 'b': {
-      // TODO(#30): `b 0` in hdb results in "ERROR: Cannot parse address or
+      // TODO: `b 0` in hdb results in "ERROR: Cannot parse address or
       // labels"
       char *addr = input_buf + 2;
       Inst_Addr break_addr;
@@ -322,11 +312,11 @@ int main(int argc, char **argv) {
     case 'r':
       if (!state.hvm.halt) {
         fprintf(stderr, "ERROR: Program is already running\n");
-        /* TODO(#31): Reset hvm and restart program */
+        // TODO: Reset hvm and restart program
       }
 
       state.hvm.halt = 0;
-      /* fall through */
+      // fall through
 
     case 'c':
       if (hdb_continue(&state)) {
