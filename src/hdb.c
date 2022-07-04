@@ -233,7 +233,7 @@ Hdb_Err hdb_parse_label_or_addr(Hdb_State *st, const char *in, Inst_Addr *out) {
 }
 
 /*
- * TODO: support for native function in the debugger
+ * TODO(#27): support for native function in the debugger
  * TODO: there is no way to examine the memory in hdb
  * TODO: using String_View for parsing in hdb
  */
