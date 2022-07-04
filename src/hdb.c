@@ -5,7 +5,7 @@
     defined(__OpenBSD__) || defined(__DragonFly__)
 #include <limits.h>
 #else
-// TODO: find a better way to get PATH_MAX on unportable OSes
+// TODO(#26): find a better way to get PATH_MAX on unportable OSes
 //   Windows? -> MAX_PATH is obsolete
 //   Linux? -> PATH_MAX is not guaranteed to be available.
 //             This already causes CI build failures
@@ -230,9 +230,9 @@ Hdb_Err hdb_parse_label_or_addr(Hdb_State *st, const char *in, Inst_Addr *out) {
   return HDB_OK;
 }
 
-// TODO: support for native function in the debugger
-// TODO: there is no way to examine the memory in hdb
-// TODO: using String_View for parsing in hdb
+// TODO(#27): support for native function in the debugger
+// TODO(#28): there is no way to examine the memory in hdb
+// TODO(#29): using String_View for parsing in hdb
 
 int main(int argc, char **argv) {
   if (argc < 2) {
@@ -282,7 +282,7 @@ int main(int argc, char **argv) {
       break;
 
     case 'b': {
-      // TODO: `b 0` in hdb results in "ERROR: Cannot parse address or
+      // TODO(#30): `b 0` in hdb results in "ERROR: Cannot parse address or
       // labels"
       char *addr = input_buf + 2;
       Inst_Addr break_addr;
@@ -312,7 +312,7 @@ int main(int argc, char **argv) {
     case 'r':
       if (!state.hvm.halt) {
         fprintf(stderr, "ERROR: Program is already running\n");
-        // TODO: Reset hvm and restart program
+        // TODO(#31): Reset hvm and restart program
       }
 
       state.hvm.halt = 0;
