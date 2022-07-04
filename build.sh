@@ -9,8 +9,9 @@ LIBS=
 (set -x ;\
     $CC $CFLAGS -o hackc  ./src/hackc.c  $LIBS ;\
     $CC $CFLAGS -o hack   ./src/hack.c   $LIBS ;\
+    $CC $CFLAGS -o hdb    ./src/hdb.c    $LIBS ;\
     $CC $CFLAGS -o dehack ./src/dehack.c $LIBS)
 
 for example in `find examples/ -name *.hack ! -name natives.hack | sed "s/.hack//"`; do
-    (set -x; ./hackc $example.hack $example.har)
+    (set -x; ./hackc -d $example.hack $example.har)
 done
