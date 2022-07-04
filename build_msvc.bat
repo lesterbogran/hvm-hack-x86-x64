@@ -13,7 +13,7 @@ cl.exe %CFLAGS% ./src/hack.c
 
 cl.exe %CFLAGS% ./src/dehack.c
 
-rem TODO: hdb is not built on Windows
+rem TODO(#25): hdb is not built on Windows
 
 if "%1" == "examples" setlocal EnableDelayedExpansion && for %%e in (%EXAMPLES%) do (
     set name=%%e
