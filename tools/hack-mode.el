@@ -50,3 +50,7 @@
 
 ;;;###autoload
 (add-to-list 'auto-mode-alist '("\\.hack\\'" . hack-mode))
+
+(provide 'hack-mode)
+
+;;; hack-mode.el ends here
