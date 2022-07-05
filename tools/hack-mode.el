@@ -15,7 +15,11 @@
       ("[[:word:]_]+\\:" . font-lock-constant-face)
       ("nop\\|push\\|drop\\|dup\\|plusi\\|minusi\\|multi\\|divi\\|modi\\|plusf\\|minusf\\|multf\\|divf\\|jmp_if\\|jmp\\|eq\\|halt\\|swap\\|not\\|gef\\|gei\\|ret\\|call\\|native\\|andb\\|orb\\|xor\\|shr\\|shl\\|notb\\|read8\\|read16\\|read32\\|read64\\|write8\\|write16\\|write32\\|write64" . font-lock-keyword-face)))
 
+;;;###autoload
 (define-derived-mode hack-mode fundamental-mode "hack"
     "Major mode for editing Hack Assembly code."
     (setq font-lock-defaults '(hack-highlights))
     (set-syntax-table hack-mode-syntax-table))
+
+;;;###autoload
+(add-to-list 'auto-mode-alist '("\\.hack\\'" . hack-mode))
