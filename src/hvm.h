@@ -62,8 +62,8 @@ typedef enum {
 
 const char *err_as_cstr(Err err);
 
-// TODO(#38): comparison instruction set is not complete
-// TODO(#39): there is no operations for converting
+// TODO(#5): comparison instruction set is not complete
+// TODO(#6): there is no operations for converting
 // integer->float/float->interger
 typedef enum {
   INST_NOP = 0,
@@ -160,11 +160,11 @@ void hvm_push_native(Hvm *hvm, Hvm_Native native);
 void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 
-#define HAR_MAGIC 0x6D62
+#define HAR_MAGIC 0x4D5648
 #define HAR_VERSION 3
 
 PACK(struct Har_Meta {
-  uint16_t magic;
+  uint32_t magic;
   uint16_t version;
   uint64_t program_size;
   uint64_t memory_size;
@@ -642,7 +642,7 @@ Err hvm_execute_inst(Hvm *hvm) {
     BINARY_OP(hvm, f64, u64, ==);
     break;
 
-  // TODO(#40): Inconsistency between gef and minus* instructions operand
+  // TODO(#7): Inconsistency between gef and minus* instructions operand
   // ordering
   case INST_GEF:
     if (hvm->stack_size < 2) {
@@ -1124,7 +1124,7 @@ Word hack_push_string_to_memory(Hack *hack, String_View sv) {
 
 bool hack_translate_literal(Hack *hack, String_View sv, Word *output) {
   if (sv.count >= 2 && *sv.data == '"' && sv.data[sv.count - 1] == '"') {
-    // TODO(#66): string literals don't support escaped characters
+    // TODO(#23): string literals don't support escaped characters
     sv.data += 1;
     sv.count -= 2;
     *output = hack_push_string_to_memory(hack, sv);
@@ -1223,7 +1223,7 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
             }
 
             if (!hack_bind_value(hack, name, word)) {
-              // TODO(#51): label redefinition error does not tell where the
+              // TODO(#14): label redefinition error does not tell where the
               // first label was already defined
               fprintf(stderr, "%.*s:%d: ERROR: name `%.*s` is already bound\n",
                       SV_FORMAT(input_file_path), line_number, SV_FORMAT(name));
@@ -1326,7 +1326,7 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
     if (!hack_resolve_binding(
             hack, name,
             &hack->program[hack->deferred_operands[i].addr].operand)) {
-      // TODO(#52): second pass label resolution errors don't report the
+      // TODO(#15): second pass label resolution errors don't report the
       // location in the source code
       fprintf(stderr, "%.*s: ERROR: unknown binding `%.*s`\n",
               SV_FORMAT(input_file_path), SV_FORMAT(name));
