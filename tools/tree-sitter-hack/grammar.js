@@ -66,6 +66,7 @@ module.exports = grammar({
       'call',
       'native',
       'eqi',
+      'eqf',
       'halt',
       'not',
       'gei',

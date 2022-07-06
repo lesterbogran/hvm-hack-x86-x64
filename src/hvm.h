@@ -85,10 +85,11 @@ typedef enum {
   INST_RET,
   INST_CALL,
   INST_NATIVE,
-  INST_EQI,
   INST_HALT,
   INST_NOT,
+  INST_EQI,
   INST_GEI,
+  INST_EQF,
   INST_GEF,
   INST_ANDB,
   INST_ORB,
@@ -258,6 +259,8 @@ bool inst_has_operand(Inst_Type type) {
     return true;
   case INST_EQI:
     return false;
+  case INST_EQF:
+    return false;
   case INST_HALT:
     return false;
   case INST_SWAP:
@@ -354,6 +357,8 @@ const char *inst_name(Inst_Type type) {
     return "jmp_if";
   case INST_EQI:
     return "eqi";
+  case INST_EQF:
+    return "eqf";
   case INST_HALT:
     return "halt";
   case INST_SWAP:
@@ -621,6 +626,18 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->stack[hvm->stack_size - 2].as_u64 =
         hvm->stack[hvm->stack_size - 1].as_u64 ==
         hvm->stack[hvm->stack_size - 2].as_u64;
+    hvm->stack_size -= 1;
+    hvm->ip += 1;
+    break;
+
+  case INST_EQF:
+    if (hvm->stack_size < 2) {
+      return ERR_STACK_UNDERFLOW;
+    }
+
+    hvm->stack[hvm->stack_size - 2].as_u64 =
+        hvm->stack[hvm->stack_size - 1].as_f64 ==
+        hvm->stack[hvm->stack_size - 2].as_f64;
     hvm->stack_size -= 1;
     hvm->ip += 1;
     break;
