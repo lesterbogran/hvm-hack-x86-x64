@@ -260,7 +260,7 @@
         },
         {
           "type": "STRING",
-          "value": "eq"
+          "value": "eqi"
         },
         {
           "type": "STRING",

@@ -16,7 +16,7 @@ loop:
     
     dup 0
     push N
-    eq
+    eqi
     not
 
     jmp_if loop

@@ -85,7 +85,7 @@ typedef enum {
   INST_RET,
   INST_CALL,
   INST_NATIVE,
-  INST_EQ,
+  INST_EQI,
   INST_HALT,
   INST_NOT,
   INST_GEI,
@@ -160,7 +160,7 @@ void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 
 #define HAR_MAGIC 0x4D5648
-#define HAR_VERSION 2
+#define HAR_VERSION 3
 
 PACK(struct Har_Meta {
   uint32_t magic;
@@ -256,7 +256,7 @@ bool inst_has_operand(Inst_Type type) {
     return true;
   case INST_JMP_IF:
     return true;
-  case INST_EQ:
+  case INST_EQI:
     return false;
   case INST_HALT:
     return false;
@@ -352,8 +352,8 @@ const char *inst_name(Inst_Type type) {
     return "jmp";
   case INST_JMP_IF:
     return "jmp_if";
-  case INST_EQ:
-    return "eq";
+  case INST_EQI:
+    return "eqi";
   case INST_HALT:
     return "halt";
   case INST_SWAP:
@@ -613,7 +613,7 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->halt = 1;
     break;
 
-  case INST_EQ:
+  case INST_EQI:
     if (hvm->stack_size < 2) {
       return ERR_STACK_UNDERFLOW;
     }

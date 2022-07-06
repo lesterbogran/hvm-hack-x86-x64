@@ -93,7 +93,7 @@ loop:
 
         dup 0
         push length
-        eq
+        eqi
         not
         jmp_if loop
 
