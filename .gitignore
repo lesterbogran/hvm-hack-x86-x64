@@ -4,3 +4,4 @@ hackc
 dehack
 examples/*.har.sym
 hdb
+tools/tree-sitter-hack/node_modules/

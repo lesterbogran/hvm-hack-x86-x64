@@ -1,0 +1,284 @@
+[
+  {
+    "type": "directive",
+    "named": true,
+    "fields": {
+      "label": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "%bind",
+            "named": false
+          },
+          {
+            "type": "%include",
+            "named": false
+          }
+        ]
+      },
+      "param": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      },
+      "value": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "number",
+            "named": true
+          },
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "label",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "operation",
+    "named": true,
+    "fields": {
+      "operand": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "number",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "source_file",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "directive",
+          "named": true
+        },
+        {
+          "type": "label",
+          "named": true
+        },
+        {
+          "type": "operation",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "%bind",
+    "named": false
+  },
+  {
+    "type": "%include",
+    "named": false
+  },
+  {
+    "type": "andb",
+    "named": false
+  },
+  {
+    "type": "call",
+    "named": false
+  },
+  {
+    "type": "comment",
+    "named": true
+  },
+  {
+    "type": "divf",
+    "named": false
+  },
+  {
+    "type": "divi",
+    "named": false
+  },
+  {
+    "type": "drop",
+    "named": false
+  },
+  {
+    "type": "dup",
+    "named": false
+  },
+  {
+    "type": "eq",
+    "named": false
+  },
+  {
+    "type": "gef",
+    "named": false
+  },
+  {
+    "type": "gei",
+    "named": false
+  },
+  {
+    "type": "halt",
+    "named": false
+  },
+  {
+    "type": "identifier",
+    "named": true
+  },
+  {
+    "type": "jmp",
+    "named": false
+  },
+  {
+    "type": "jmp_if",
+    "named": false
+  },
+  {
+    "type": "minusf",
+    "named": false
+  },
+  {
+    "type": "minusi",
+    "named": false
+  },
+  {
+    "type": "modi",
+    "named": false
+  },
+  {
+    "type": "multf",
+    "named": false
+  },
+  {
+    "type": "multi",
+    "named": false
+  },
+  {
+    "type": "native",
+    "named": false
+  },
+  {
+    "type": "nop",
+    "named": false
+  },
+  {
+    "type": "not",
+    "named": false
+  },
+  {
+    "type": "notb",
+    "named": false
+  },
+  {
+    "type": "number",
+    "named": true
+  },
+  {
+    "type": "orb",
+    "named": false
+  },
+  {
+    "type": "plusf",
+    "named": false
+  },
+  {
+    "type": "plusi",
+    "named": false
+  },
+  {
+    "type": "push",
+    "named": false
+  },
+  {
+    "type": "read16",
+    "named": false
+  },
+  {
+    "type": "read32",
+    "named": false
+  },
+  {
+    "type": "read64",
+    "named": false
+  },
+  {
+    "type": "read8",
+    "named": false
+  },
+  {
+    "type": "ret",
+    "named": false
+  },
+  {
+    "type": "shl",
+    "named": false
+  },
+  {
+    "type": "shr",
+    "named": false
+  },
+  {
+    "type": "string",
+    "named": true
+  },
+  {
+    "type": "swap",
+    "named": false
+  },
+  {
+    "type": "write16",
+    "named": false
+  },
+  {
+    "type": "write32",
+    "named": false
+  },
+  {
+    "type": "write64",
+    "named": false
+  },
+  {
+    "type": "write8",
+    "named": false
+  },
+  {
+    "type": "xor",
+    "named": false
+  }
+]
