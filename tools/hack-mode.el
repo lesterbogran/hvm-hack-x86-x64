@@ -37,9 +37,9 @@
         syn-table))
 
 (setq hack-highlights
-    '(("%[[:word:]_]+" . font-lock-preprocessor-face)
-      ("[[:word:]_]+\\:" . font-lock-constant-face)
-      ("\\<\\(nop\\|push\\|drop\\|dup\\|swap\\|plusi\\|minusi\\|multi\\|divi\\|modi\\|plusf\\|minusf\\|multf\\|divf\\|jmp\\|jmp_if\\|ret\\|call\\|native\\|halt\\|not\\|eqi\\|gei\\|eqf\\|gef\\|andb\\|orb\\|xor\\|shr\\|shl\\|notb\\|read8\\|read16\\|read32\\|read64\\|write8\\|write16\\|write32\\|write64\\)\\>>" . font-lock-keyword-face)))
+      '(("%[[:word:]_]+" . font-lock-preprocessor-face)
+        ("[[:word:]_]+\\:" . font-lock-constant-face)
+        ("\\<\\(nop\\|push\\|drop\\|dup\\|plusi\\|minusi\\|multi\\|divi\\|modi\\|plusf\\|minusf\\|multf\\|divf\\|jmp_if\\|jmp\\|eqi\\|halt\\|swap\\|not\\|gef\\|gei\\|ret\\|call\\|native\\|andb\\|orb\\|xor\\|shr\\|shl\\|notb\\|read8\\|read16\\|read32\\|read64\\|write8\\|write16\\|write32\\|write64\\)\\>" . font-lock-keyword-face)))
 
 ;;;###autoload
 (define-derived-mode hack-mode fundamental-mode "hack"

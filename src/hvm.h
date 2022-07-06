@@ -62,8 +62,8 @@ typedef enum {
 
 const char *err_as_cstr(Err err);
 
-// TODO(#5): comparison instruction set is not complete
-// TODO(#6): there is no operations for converting
+// TODO(#38): comparison instruction set is not complete
+// TODO(#39): there is no operations for converting
 // integer->float/float->interger
 typedef enum {
   INST_NOP = 0,
@@ -160,11 +160,11 @@ void hvm_push_native(Hvm *hvm, Hvm_Native native);
 void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 
-#define HAR_MAGIC 0x4D5648
+#define HAR_MAGIC 0x6D62
 #define HAR_VERSION 3
 
 PACK(struct Har_Meta {
-  uint32_t magic;
+  uint16_t magic;
   uint16_t version;
   uint64_t program_size;
   uint64_t memory_size;
@@ -257,17 +257,17 @@ bool inst_has_operand(Inst_Type type) {
     return true;
   case INST_JMP_IF:
     return true;
-  case INST_EQI:
-    return false;
-  case INST_EQF:
-    return false;
   case INST_HALT:
     return false;
   case INST_SWAP:
     return true;
   case INST_NOT:
     return false;
+  case INST_EQF:
+    return false;
   case INST_GEF:
+    return false;
+  case INST_EQI:
     return false;
   case INST_GEI:
     return false;
@@ -355,20 +355,20 @@ const char *inst_name(Inst_Type type) {
     return "jmp";
   case INST_JMP_IF:
     return "jmp_if";
-  case INST_EQI:
-    return "eqi";
-  case INST_EQF:
-    return "eqf";
   case INST_HALT:
     return "halt";
   case INST_SWAP:
     return "swap";
   case INST_NOT:
     return "not";
-  case INST_GEF:
-    return "gef";
+  case INST_EQI:
+    return "eqi";
   case INST_GEI:
     return "gei";
+  case INST_EQF:
+    return "eqf";
+  case INST_GEF:
+    return "gef";
   case INST_RET:
     return "ret";
   case INST_CALL:
@@ -447,6 +447,22 @@ Err hvm_execute_program(Hvm *hvm, int limit) {
 
   return ERR_OK;
 }
+
+#define BINARY_OP(hvm, in, out, op)                                            \
+  do {                                                                         \
+    if ((hvm)->stack_size < 2) {                                               \
+      return ERR_STACK_UNDERFLOW;                                              \
+    }                                                                          \
+                                                                               \
+    (hvm)->stack[(hvm)->stack_size - 2].as_##out =                             \
+        (hvm)                                                                  \
+            ->stack[(hvm)->stack_size - 1]                                     \
+            .as_##in op(hvm)                                                   \
+            ->stack[(hvm)->stack_size - 2]                                     \
+            .as_##in;                                                          \
+    (hvm)->stack_size -= 1;                                                    \
+    (hvm)->ip += 1;                                                            \
+  } while (false)
 
 Err hvm_execute_inst(Hvm *hvm) {
   if (hvm->ip >= hvm->program_size) {
@@ -619,30 +635,14 @@ Err hvm_execute_inst(Hvm *hvm) {
     break;
 
   case INST_EQI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 1].as_u64 ==
-        hvm->stack[hvm->stack_size - 2].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, ==);
     break;
 
   case INST_EQF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 1].as_f64 ==
-        hvm->stack[hvm->stack_size - 2].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, u64, ==);
     break;
 
-  // TODO(#7): Inconsistency between gef and minus* instructions operand
+  // TODO(#40): Inconsistency between gef and minus* instructions operand
   // ordering
   case INST_GEF:
     if (hvm->stack_size < 2) {
@@ -939,17 +939,16 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
 
   if (meta.magic != HAR_MAGIC) {
     fprintf(stderr,
-            "ERROR: %s does not appear to be a valid Har file. "
+            "ERROR: %s does not appear to be a valid Har. "
             "Unexpected magic %04X. Expected %04X.\n",
             file_path, meta.magic, HAR_MAGIC);
     exit(1);
   }
 
   if (meta.version != HAR_VERSION) {
-    fprintf(
-        stderr,
-        "ERROR: %s: unsupported version of Har file %d. Expected version %d.\n",
-        file_path, meta.version, HAR_VERSION);
+    fprintf(stderr,
+            "ERROR: %s: unsupported version of Har %d. Expected version %d.\n",
+            file_path, meta.version, HAR_VERSION);
     exit(1);
   }
 
@@ -1125,7 +1124,7 @@ Word hack_push_string_to_memory(Hack *hack, String_View sv) {
 
 bool hack_translate_literal(Hack *hack, String_View sv, Word *output) {
   if (sv.count >= 2 && *sv.data == '"' && sv.data[sv.count - 1] == '"') {
-    // TODO(#23): string literals don't support escaped characters
+    // TODO(#66): string literals don't support escaped characters
     sv.data += 1;
     sv.count -= 2;
     *output = hack_push_string_to_memory(hack, sv);
@@ -1224,7 +1223,7 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
             }
 
             if (!hack_bind_value(hack, name, word)) {
-              // TODO(#14): label redefinition error does not tell where the
+              // TODO(#51): label redefinition error does not tell where the
               // first label was already defined
               fprintf(stderr, "%.*s:%d: ERROR: name `%.*s` is already bound\n",
                       SV_FORMAT(input_file_path), line_number, SV_FORMAT(name));
@@ -1327,7 +1326,7 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
     if (!hack_resolve_binding(
             hack, name,
             &hack->program[hack->deferred_operands[i].addr].operand)) {
-      // TODO(#15): second pass label resolution errors don't report the
+      // TODO(#52): second pass label resolution errors don't report the
       // location in the source code
       fprintf(stderr, "%.*s: ERROR: unknown binding `%.*s`\n",
               SV_FORMAT(input_file_path), SV_FORMAT(name));
