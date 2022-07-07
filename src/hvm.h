@@ -87,10 +87,17 @@ typedef enum {
   INST_NATIVE,
   INST_HALT,
   INST_NOT,
+
   INST_EQI,
   INST_GEI,
+  INST_GTI,
+  INST_LEI,
+  INST_LTI,
+  INST_NEI,
+
   INST_EQF,
   INST_GEF,
+
   INST_ANDB,
   INST_ORB,
   INST_XOR,
@@ -271,6 +278,14 @@ bool inst_has_operand(Inst_Type type) {
     return false;
   case INST_GEI:
     return false;
+  case INST_GTI:
+    return false;
+  case INST_LEI:
+    return false;
+  case INST_LTI:
+    return false;
+  case INST_NEI:
+    return false;
   case INST_RET:
     return false;
   case INST_CALL:
@@ -365,6 +380,14 @@ const char *inst_name(Inst_Type type) {
     return "eqi";
   case INST_GEI:
     return "gei";
+  case INST_GTI:
+    return "gti";
+  case INST_LEI:
+    return "lei";
+  case INST_LTI:
+    return "lti";
+  case INST_NEI:
+    return "nei";
   case INST_EQF:
     return "eqf";
   case INST_GEF:
@@ -589,6 +612,22 @@ Err hvm_execute_inst(Hvm *hvm) {
 
   case INST_GEI:
     BINARY_OP(hvm, u64, u64, >=);
+    break;
+
+  case INST_GTI:
+    BINARY_OP(hvm, u64, u64, >);
+    break;
+
+  case INST_LEI:
+    BINARY_OP(hvm, u64, u64, <=);
+    break;
+
+  case INST_LTI:
+    BINARY_OP(hvm, u64, u64, <);
+    break;
+
+  case INST_NEI:
+    BINARY_OP(hvm, u64, u64, !=);
     break;
 
   case INST_JMP_IF:
