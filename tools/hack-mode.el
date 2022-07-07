@@ -50,15 +50,16 @@
           "ret" "call" "native" "halt" "not" "eqi" "gei" "gti" "lei"
           "lti" "nei" "eqf" "gef" "gtf" "lef" "ltf" "nef" "andb" "orb"
           "xor" "shr" "shl" "notb" "read8" "read16" "read32" "read64"
-          "write8" "write16" "write32" "write64"))
+          "write8" "write16" "write32" "write64" "i2f" "u2f" "f2i" "f2u"))
        (keywords-regexp
-        (concat "\\<"
+        (concat "\\<\\("
                 (string-join
                  (hack--interleave keywords "\\|"))
-                "\\>")))
+                "\\)\\>")))
   (setq hack-highlights
         `(("%[[:word:]_]+" . font-lock-preprocessor-face)
           ("[[:word:]_]+\\:" . font-lock-constant-face)
+          ("\\_<\-?[0-9.]+\\_>+" . font-lock-preprocessor-face)
           (,keywords-regexp . font-lock-keyword-face))))
 
 ;;;###autoload

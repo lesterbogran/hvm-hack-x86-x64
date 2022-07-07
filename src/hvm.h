@@ -116,6 +116,12 @@ typedef enum {
   INST_WRITE16,
   INST_WRITE32,
   INST_WRITE64,
+
+  INST_I2F,
+  INST_U2F,
+  INST_F2I,
+  INST_F2U,
+
   NUMBER_OF_INSTS,
 } Inst_Type;
 
@@ -172,7 +178,7 @@ void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 
 #define HAR_MAGIC 0x4D5648
-#define HAR_VERSION 3
+#define HAR_VERSION 4
 
 PACK(struct Har_Meta {
   uint32_t magic;
@@ -332,6 +338,14 @@ bool inst_has_operand(Inst_Type type) {
     return false;
   case INST_WRITE64:
     return false;
+  case INST_I2F:
+    return false;
+  case INST_U2F:
+    return false;
+  case INST_F2I:
+    return false;
+  case INST_F2U:
+    return false;
   case NUMBER_OF_INSTS:
   default:
     assert(false && "inst_has_operand: unreachable");
@@ -446,6 +460,14 @@ const char *inst_name(Inst_Type type) {
     return "write32";
   case INST_WRITE64:
     return "write64";
+  case INST_I2F:
+    return "i2f";
+  case INST_U2F:
+    return "u2f";
+  case INST_F2I:
+    return "f2i";
+  case INST_F2U:
+    return "f2u";
   case NUMBER_OF_INSTS:
   default:
     assert(false && "inst_name: unreachable");
@@ -504,6 +526,17 @@ Err hvm_execute_program(Hvm *hvm, int limit) {
             ->stack[(hvm)->stack_size - 1]                                     \
             .as_##in;                                                          \
     (hvm)->stack_size -= 1;                                                    \
+    (hvm)->ip += 1;                                                            \
+  } while (false)
+
+#define CAST_OP(hvm, src, dst, cast)                                           \
+  do {                                                                         \
+    if ((hvm)->stack_size < 1) {                                               \
+      return ERR_STACK_UNDERFLOW;                                              \
+    }                                                                          \
+                                                                               \
+    (hvm)->stack[(hvm)->stack_size - 1].as_##dst =                             \
+        cast(hvm)->stack[(hvm)->stack_size - 1].as_##src;                      \
     (hvm)->ip += 1;                                                            \
   } while (false)
 
@@ -848,6 +881,22 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->stack_size -= 2;
     hvm->ip += 1;
   } break;
+
+  case INST_I2F:
+    CAST_OP(hvm, i64, f64, (double));
+    break;
+
+  case INST_U2F:
+    CAST_OP(hvm, u64, f64, (double));
+    break;
+
+  case INST_F2I:
+    CAST_OP(hvm, f64, i64, (int64_t));
+    break;
+
+  case INST_F2U:
+    CAST_OP(hvm, f64, u64, (uint64_t)(int64_t));
+    break;
 
   case NUMBER_OF_INSTS:
   default:
