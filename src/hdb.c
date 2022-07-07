@@ -1,23 +1,6 @@
 #include <assert.h>
-#include <fcntl.h>
-
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__NetBSD__) ||       \
-    defined(__OpenBSD__) || defined(__DragonFly__)
-#include <limits.h>
-#else
-// TODO(#26): find a better way to get PATH_MAX on unportable OSes
-//   Windows? -> MAX_PATH is obsolete
-//   Linux? -> PATH_MAX is not guaranteed to be available.
-//             This already causes CI build failures
-// NOTE: This issue also applies to hackc.c
-#define PATH_MAX 4096
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 #include "hdb.h"
 
@@ -32,46 +15,11 @@ Hdb_Err hdb_state_init(Hdb_State *state, const char *executable) {
 
   state->cood_file_name = sv_from_cstr(executable);
   hvm_load_program_from_file(&state->hvm, executable);
+  hvm_load_standard_natives(&state->hvm);
 
-  char buf[PATH_MAX];
-  memcpy(buf, executable, strlen(executable));
-  memcpy(buf + strlen(executable), ".sym", 5);
-
-  if (access(buf, R_OK) == 0) {
-    fprintf(stdout, "INFO: Loading debug symbols...\n");
-    return hdb_load_symtab(state, buf);
-  } else {
-    return HDB_OK;
-  }
-}
-
-Hdb_Err hdb_mmap_file(const char *path, String_View *out) {
-  assert(path);
-  assert(out);
-
-  int fd;
-
-  if ((fd = open(path, O_RDONLY)) < 0) {
-    return HDB_FAIL;
-  }
-
-  struct stat stat_buf;
-  if (fstat(fd, &stat_buf) < 0) {
-    return HDB_FAIL;
-  }
-
-  char *content =
-      mmap(NULL, (size_t)stat_buf.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-  if (content == MAP_FAILED) {
-    return HDB_FAIL;
-  }
-
-  out->data = content;
-  out->count = (size_t)stat_buf.st_size;
-
-  close(fd);
-
-  return HDB_OK;
+  fprintf(stdout, "INFO : Loading debug symbols...\n");
+  return hdb_load_symtab(state,
+                         arena_sv_concat2(&state->arena, executable, ".sym"));
 }
 
 Hdb_Err hdb_find_addr_of_label(Hdb_State *state, const char *name,
@@ -87,11 +35,8 @@ Hdb_Err hdb_find_addr_of_label(Hdb_State *state, const char *name,
   return HDB_FAIL;
 }
 
-Hdb_Err hdb_load_symtab(Hdb_State *state, const char *symtab_file) {
-  String_View symtab;
-  if (hdb_mmap_file(symtab_file, &symtab) == HDB_FAIL) {
-    return HDB_FAIL;
-  }
+Hdb_Err hdb_load_symtab(Hdb_State *state, String_View symtab_file) {
+  String_View symtab = arena_slurp_file(&state->arena, symtab_file);
 
   while (symtab.count > 0) {
     symtab = sv_trim_left(symtab);
@@ -230,6 +175,8 @@ Hdb_Err hdb_parse_label_or_addr(Hdb_State *st, const char *in, Inst_Addr *out) {
   return HDB_OK;
 }
 
+Hdb_State state = {0};
+
 // TODO(#27): support for native function in the debugger
 // TODO(#28): there is no way to examine the memory in hdb
 // TODO(#29): using String_View for parsing in hdb
@@ -242,7 +189,6 @@ int main(int argc, char **argv) {
 
   // Create the HDB state and initialize it with the file names
 
-  Hdb_State state = {0};
   state.hvm.halt = 1;
 
   printf("HDB - The HVM debugger.\n"
@@ -252,6 +198,7 @@ int main(int argc, char **argv) {
             strerror(errno));
   }
 
+  // TODO(#34): repeat previous command in hdb
   while (1) {
     printf("(hdb) ");
     char input_buf[32];
