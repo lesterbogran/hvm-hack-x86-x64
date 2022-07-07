@@ -142,7 +142,7 @@
     "named": false
   },
   {
-    "type": "eq",
+    "type": "eqi",
     "named": false
   },
   {

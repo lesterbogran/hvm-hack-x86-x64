@@ -85,11 +85,23 @@ typedef enum {
   INST_RET,
   INST_CALL,
   INST_NATIVE,
-  INST_EQ,
   INST_HALT,
   INST_NOT,
+
+  INST_EQI,
   INST_GEI,
+  INST_GTI,
+  INST_LEI,
+  INST_LTI,
+  INST_NEI,
+
+  INST_EQF,
   INST_GEF,
+  INST_GTF,
+  INST_LEF,
+  INST_LTF,
+  INST_NEF,
+
   INST_ANDB,
   INST_ORB,
   INST_XOR,
@@ -160,7 +172,7 @@ void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 
 #define HAR_MAGIC 0x4D5648
-#define HAR_VERSION 2
+#define HAR_VERSION 3
 
 PACK(struct Har_Meta {
   uint32_t magic;
@@ -256,17 +268,35 @@ bool inst_has_operand(Inst_Type type) {
     return true;
   case INST_JMP_IF:
     return true;
-  case INST_EQ:
-    return false;
   case INST_HALT:
     return false;
   case INST_SWAP:
     return true;
   case INST_NOT:
     return false;
+  case INST_EQF:
+    return false;
   case INST_GEF:
     return false;
+  case INST_GTF:
+    return false;
+  case INST_LEF:
+    return false;
+  case INST_LTF:
+    return false;
+  case INST_NEF:
+    return false;
+  case INST_EQI:
+    return false;
   case INST_GEI:
+    return false;
+  case INST_GTI:
+    return false;
+  case INST_LEI:
+    return false;
+  case INST_LTI:
+    return false;
+  case INST_NEI:
     return false;
   case INST_RET:
     return false;
@@ -352,18 +382,36 @@ const char *inst_name(Inst_Type type) {
     return "jmp";
   case INST_JMP_IF:
     return "jmp_if";
-  case INST_EQ:
-    return "eq";
   case INST_HALT:
     return "halt";
   case INST_SWAP:
     return "swap";
   case INST_NOT:
     return "not";
-  case INST_GEF:
-    return "gef";
+  case INST_EQI:
+    return "eqi";
   case INST_GEI:
     return "gei";
+  case INST_GTI:
+    return "gti";
+  case INST_LEI:
+    return "lei";
+  case INST_LTI:
+    return "lti";
+  case INST_NEI:
+    return "nei";
+  case INST_EQF:
+    return "eqf";
+  case INST_GEF:
+    return "gef";
+  case INST_GTF:
+    return "gtf";
+  case INST_LEF:
+    return "lef";
+  case INST_LTF:
+    return "ltf";
+  case INST_NEF:
+    return "nef";
   case INST_RET:
     return "ret";
   case INST_CALL:
@@ -443,6 +491,22 @@ Err hvm_execute_program(Hvm *hvm, int limit) {
   return ERR_OK;
 }
 
+#define BINARY_OP(hvm, in, out, op)                                            \
+  do {                                                                         \
+    if ((hvm)->stack_size < 2) {                                               \
+      return ERR_STACK_UNDERFLOW;                                              \
+    }                                                                          \
+                                                                               \
+    (hvm)->stack[(hvm)->stack_size - 2].as_##out =                             \
+        (hvm)                                                                  \
+            ->stack[(hvm)->stack_size - 2]                                     \
+            .as_##in op(hvm)                                                   \
+            ->stack[(hvm)->stack_size - 1]                                     \
+            .as_##in;                                                          \
+    (hvm)->stack_size -= 1;                                                    \
+    (hvm)->ip += 1;                                                            \
+  } while (false)
+
 Err hvm_execute_inst(Hvm *hvm) {
   if (hvm->ip >= hvm->program_size) {
     return ERR_ILLEGAL_INST_ACCESS;
@@ -472,108 +536,47 @@ Err hvm_execute_inst(Hvm *hvm) {
     break;
 
   case INST_PLUSI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-    hvm->stack[hvm->stack_size - 2].as_u64 +=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, +);
     break;
 
   case INST_MINUSI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-    hvm->stack[hvm->stack_size - 2].as_u64 -=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, -);
     break;
 
   case INST_MULTI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-    hvm->stack[hvm->stack_size - 2].as_u64 *=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, *);
     break;
 
   case INST_DIVI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
     if (hvm->stack[hvm->stack_size - 1].as_u64 == 0) {
       return ERR_DIV_BY_ZERO;
     }
 
-    hvm->stack[hvm->stack_size - 2].as_u64 /=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, /);
     break;
 
   case INST_MODI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
     if (hvm->stack[hvm->stack_size - 1].as_u64 == 0) {
       return ERR_DIV_BY_ZERO;
     }
 
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 %
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, %);
     break;
 
   case INST_PLUSF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_f64 +=
-        hvm->stack[hvm->stack_size - 1].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, f64, +);
     break;
 
   case INST_MINUSF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_f64 -=
-        hvm->stack[hvm->stack_size - 1].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, f64, -);
     break;
 
   case INST_MULTF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_f64 *=
-        hvm->stack[hvm->stack_size - 1].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, f64, *);
     break;
 
   case INST_DIVF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_f64 /=
-        hvm->stack[hvm->stack_size - 1].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, f64, /);
     break;
 
   case INST_JMP:
@@ -613,42 +616,52 @@ Err hvm_execute_inst(Hvm *hvm) {
     hvm->halt = 1;
     break;
 
-  case INST_EQ:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 1].as_u64 ==
-        hvm->stack[hvm->stack_size - 2].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+  case INST_EQF:
+    BINARY_OP(hvm, f64, u64, ==);
     break;
 
-  // TODO(#7): Inconsistency between gef and minus* instructions operand
-  // ordering
   case INST_GEF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
+    BINARY_OP(hvm, f64, u64, >=);
+    break;
 
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 1].as_f64 >=
-        hvm->stack[hvm->stack_size - 2].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+  case INST_GTF:
+    BINARY_OP(hvm, f64, u64, >);
+    break;
+
+  case INST_LEF:
+    BINARY_OP(hvm, f64, u64, <=);
+    break;
+
+  case INST_LTF:
+    BINARY_OP(hvm, f64, u64, <);
+    break;
+
+  case INST_NEF:
+    BINARY_OP(hvm, f64, u64, !=);
+    break;
+
+  case INST_EQI:
+    BINARY_OP(hvm, u64, u64, ==);
     break;
 
   case INST_GEI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
+    BINARY_OP(hvm, u64, u64, >=);
+    break;
 
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 >=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+  case INST_GTI:
+    BINARY_OP(hvm, u64, u64, >);
+    break;
+
+  case INST_LEI:
+    BINARY_OP(hvm, u64, u64, <=);
+    break;
+
+  case INST_LTI:
+    BINARY_OP(hvm, u64, u64, <);
+    break;
+
+  case INST_NEI:
+    BINARY_OP(hvm, u64, u64, !=);
     break;
 
   case INST_JMP_IF:
@@ -705,63 +718,23 @@ Err hvm_execute_inst(Hvm *hvm) {
     break;
 
   case INST_ANDB:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 &
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, &);
     break;
 
   case INST_ORB:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 |
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, |);
     break;
 
   case INST_XOR:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 ^
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, ^);
     break;
 
   case INST_SHR:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 >>
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, >>);
     break;
 
   case INST_SHL:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64
-        << hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, <<);
     break;
 
   case INST_NOTB:
@@ -922,17 +895,16 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
 
   if (meta.magic != HAR_MAGIC) {
     fprintf(stderr,
-            "ERROR: %s does not appear to be a valid Har file. "
+            "ERROR: %s does not appear to be a valid Har. "
             "Unexpected magic %04X. Expected %04X.\n",
             file_path, meta.magic, HAR_MAGIC);
     exit(1);
   }
 
   if (meta.version != HAR_VERSION) {
-    fprintf(
-        stderr,
-        "ERROR: %s: unsupported version of Har file %d. Expected version %d.\n",
-        file_path, meta.version, HAR_VERSION);
+    fprintf(stderr,
+            "ERROR: %s: unsupported version of Har %d. Expected version %d.\n",
+            file_path, meta.version, HAR_VERSION);
     exit(1);
   }
 
