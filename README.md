@@ -38,3 +38,11 @@ Add the following lines to your emacs configuration:
 (add-to-list 'load-path "/path/to/hack-mode/")
 (require 'hack-mode)
 ```
+
+### Vim
+
+Copy [./tools/hack.vim](./tools/hack.vim) in `.vim/syntax/hack.vim`. Add the following line to your `.vimrc` file:
+
+```vimscript
+autocmd BufRead,BufNewFile *.hack set filetype=hack
+```
