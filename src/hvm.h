@@ -32,7 +32,8 @@
 #define HACK_COMMENT_SYMBOL ';'
 #define HACK_PP_SYMBOL '%'
 #define HACK_MAX_INCLUDE_LEVEL 69
-#define HACK_ARENA_CAPACITY (1000 * 1000 * 1000)
+
+#define ARENA_CAPACITY (1000 * 1000 * 1000)
 
 typedef struct {
   size_t count;
@@ -200,6 +201,16 @@ typedef struct {
   String_View name;
 } Deferred_Operand;
 
+// NOTE: https://en.wikipedia.org/wiki/Region-based_memory_management
+typedef struct {
+  char buffer[ARENA_CAPACITY];
+  size_t size;
+} Arena;
+
+void *arena_alloc(Arena *arena, size_t size);
+String_View arena_slurp_file(Arena *arena, String_View file_path);
+String_View arena_sv_concat2(Arena *arena, const char *a, const char *b);
+
 typedef struct {
   Binding bindings[HACK_BINDINGS_CAPACITY];
   size_t bindings_size;
@@ -214,13 +225,9 @@ typedef struct {
   size_t memory_size;
   size_t memory_capacity;
 
-  // NOTE: https://en.wikipedia.org/wiki/Region-based_memory_management
-  char arena[HACK_ARENA_CAPACITY];
-  size_t arena_size;
+  Arena arena;
 } Hack;
 
-void *hack_alloc(Hack *hack, size_t size);
-String_View hack_slurp_file(Hack *hack, String_View file_path);
 bool hack_resolve_binding(const Hack *hack, String_View name, Word *output);
 bool hack_bind_value(Hack *hack, String_View name, Word word);
 void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name);
@@ -229,6 +236,17 @@ void hack_save_to_file(Hack *hack, const char *output_file_path);
 Word hack_push_string_to_memory(Hack *hack, String_View sv);
 void hack_translate_source(Hack *hack, String_View input_file_path,
                            size_t level);
+
+void hvm_load_standard_natives(Hvm *hvm);
+
+Err native_alloc(Hvm *hvm);
+Err native_free(Hvm *hvm);
+Err native_print_f64(Hvm *hvm);
+Err native_print_i64(Hvm *hvm);
+Err native_print_u64(Hvm *hvm);
+Err native_print_ptr(Hvm *hvm);
+Err native_dump_memory(Hvm *hvm);
+Err native_write(Hvm *hvm);
 
 #endif // HVM_H_
 
@@ -1075,11 +1093,23 @@ int sv_to_int(String_View sv) {
   return result;
 }
 
-void *hack_alloc(Hack *hack, size_t size) {
-  assert(hack->arena_size + size <= HACK_ARENA_CAPACITY);
+String_View arena_sv_concat2(Arena *arena, const char *a, const char *b) {
+  const size_t a_len = strlen(a);
+  const size_t b_len = strlen(b);
+  char *buf = arena_alloc(arena, a_len + b_len);
+  memcpy(buf, a, a_len);
+  memcpy(buf + a_len, b, b_len);
+  return (String_View){
+      .count = a_len + b_len,
+      .data = buf,
+  };
+}
 
-  void *result = hack->arena + hack->arena_size;
-  hack->arena_size += size;
+void *arena_alloc(Arena *arena, size_t size) {
+  assert(arena->size + size <= ARENA_CAPACITY);
+
+  void *result = arena->buffer + arena->size;
+  arena->size += size;
   return result;
 }
 
@@ -1134,7 +1164,7 @@ bool hack_translate_literal(Hack *hack, String_View sv, Word *output) {
     sv.count -= 2;
     *output = hack_push_string_to_memory(hack, sv);
   } else {
-    char *cstr = hack_alloc(hack, sv.count + 1);
+    char *cstr = arena_alloc(&hack->arena, sv.count + 1);
     memcpy(cstr, sv.data, sv.count);
     cstr[sv.count] = '\0';
 
@@ -1196,7 +1226,7 @@ void hack_save_to_file(Hack *hack, const char *file_path) {
 
 void hack_translate_source(Hack *hack, String_View input_file_path,
                            size_t level) {
-  String_View original_source = hack_slurp_file(hack, input_file_path);
+  String_View original_source = arena_slurp_file(&hack->arena, input_file_path);
   String_View source = original_source;
 
   int line_number = 0;
@@ -1340,8 +1370,8 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
   }
 }
 
-String_View hack_slurp_file(Hack *hack, String_View file_path) {
-  char *file_path_cstr = hack_alloc(hack, file_path.count + 1);
+String_View arena_slurp_file(Arena *arena, String_View file_path) {
+  char *file_path_cstr = arena_alloc(arena, file_path.count + 1);
   if (file_path_cstr == NULL) {
     fprintf(stderr,
             "ERROR: Could not allocate memory for the file path `%.*s`: %s\n",
@@ -1372,7 +1402,7 @@ String_View hack_slurp_file(Hack *hack, String_View file_path) {
     exit(1);
   }
 
-  char *buffer = hack_alloc(hack, (size_t)m);
+  char *buffer = arena_alloc(arena, (size_t)m);
   if (buffer == NULL) {
     fprintf(stderr, "ERROR: Could not allocate memory for file: %s\n",
             strerror(errno));
@@ -1398,6 +1428,129 @@ String_View hack_slurp_file(Hack *hack, String_View file_path) {
       .count = n,
       .data = buffer,
   };
+}
+
+void hvm_load_standard_natives(Hvm *hvm) {
+  // TODO(#3): some sort of mechanism to load native functions from DLLs
+  hvm_push_native(hvm, native_alloc);       // 0
+  hvm_push_native(hvm, native_free);        // 1
+  hvm_push_native(hvm, native_print_f64);   // 2
+  hvm_push_native(hvm, native_print_i64);   // 3
+  hvm_push_native(hvm, native_print_u64);   // 4
+  hvm_push_native(hvm, native_print_ptr);   // 5
+  hvm_push_native(hvm, native_dump_memory); // 6
+  hvm_push_native(hvm, native_write);       // 7
+}
+
+Err native_alloc(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  hvm->stack[hvm->stack_size - 1].as_ptr =
+      malloc(hvm->stack[hvm->stack_size - 1].as_u64);
+
+  return ERR_OK;
+}
+
+Err native_free(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  free(hvm->stack[hvm->stack_size - 1].as_ptr);
+  hvm->stack_size -= 1;
+
+  return ERR_OK;
+}
+
+Err native_print_f64(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  printf("%lf\n", hvm->stack[hvm->stack_size - 1].as_f64);
+  hvm->stack_size -= 1;
+  return ERR_OK;
+}
+
+Err native_print_i64(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  printf("%" PRId64 "\n", hvm->stack[hvm->stack_size - 1].as_i64);
+  hvm->stack_size -= 1;
+  return ERR_OK;
+}
+
+Err native_print_u64(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  printf("%" PRIu64 "\n", hvm->stack[hvm->stack_size - 1].as_u64);
+  hvm->stack_size -= 1;
+  return ERR_OK;
+}
+
+Err native_print_ptr(Hvm *hvm) {
+  if (hvm->stack_size < 1) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  printf("%p\n", hvm->stack[hvm->stack_size - 1].as_ptr);
+  hvm->stack_size -= 1;
+  return ERR_OK;
+}
+
+Err native_dump_memory(Hvm *hvm) {
+  if (hvm->stack_size < 2) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
+  uint64_t count = hvm->stack[hvm->stack_size - 1].as_u64;
+
+  if (addr >= HVM_MEMORY_CAPACITY) {
+    return ERR_ILLEGAL_MEMORY_ACCESS;
+  }
+
+  if (addr + count < addr || addr + count >= HVM_MEMORY_CAPACITY) {
+    return ERR_ILLEGAL_MEMORY_ACCESS;
+  }
+
+  for (uint64_t i = 0; i < count; ++i) {
+    printf("%02X ", hvm->memory[addr + i]);
+  }
+  printf("\n");
+
+  hvm->stack_size -= 2;
+
+  return ERR_OK;
+}
+
+Err native_write(Hvm *hvm) {
+  if (hvm->stack_size < 2) {
+    return ERR_STACK_UNDERFLOW;
+  }
+
+  Memory_Addr addr = hvm->stack[hvm->stack_size - 2].as_u64;
+  uint64_t count = hvm->stack[hvm->stack_size - 1].as_u64;
+
+  if (addr >= HVM_MEMORY_CAPACITY) {
+    return ERR_ILLEGAL_MEMORY_ACCESS;
+  }
+
+  if (addr + count < addr || addr + count >= HVM_MEMORY_CAPACITY) {
+    return ERR_ILLEGAL_MEMORY_ACCESS;
+  }
+
+  fwrite(&hvm->memory[addr], sizeof(hvm->memory[0]), count, stdout);
+
+  hvm->stack_size -= 2;
+
+  return ERR_OK;
 }
 
 #endif // HVM_IMPLEMENTATION

@@ -13,9 +13,11 @@ cl.exe %CFLAGS% ./src/hack.c
 
 cl.exe %CFLAGS% ./src/dehack.c
 
+cl.exe %CFLAGS% ./src/hdb.c
+
 rem TODO(#25): hdb is not built on Windows
 
 if "%1" == "examples" setlocal EnableDelayedExpansion && for %%e in (%EXAMPLES%) do (
     set name=%%e
-    "./hackc.exe" !name:~0,-3!hack %%e
+    "./hackc.exe" -d !name:~0,-3!hack %%e
 )

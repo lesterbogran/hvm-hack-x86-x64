@@ -16,10 +16,11 @@ typedef struct Hdb_State {
   String_View cood_file_name;
   Hdb_Breakpoint breakpoints[HVM_PROGRAM_CAPACITY];
   String_View labels[HVM_PROGRAM_CAPACITY];
+  Arena arena;
 } Hdb_State;
 
 Hdb_Err hdb_state_init(Hdb_State *, const char *executable);
-Hdb_Err hdb_load_symtab(Hdb_State *, const char *symtab);
+Hdb_Err hdb_load_symtab(Hdb_State *state, String_View symtab_file);
 Hdb_Err hdb_step_instr(Hdb_State *);
 Hdb_Err hdb_continue(Hdb_State *);
 Hdb_Err hdb_find_addr_of_label(Hdb_State *, const char *, Inst_Addr *);
