@@ -456,9 +456,9 @@ Err hvm_execute_program(Hvm *hvm, int limit) {
                                                                                \
     (hvm)->stack[(hvm)->stack_size - 2].as_##out =                             \
         (hvm)                                                                  \
-            ->stack[(hvm)->stack_size - 1]                                     \
-            .as_##in op(hvm)                                                   \
             ->stack[(hvm)->stack_size - 2]                                     \
+            .as_##in op(hvm)                                                   \
+            ->stack[(hvm)->stack_size - 1]                                     \
             .as_##in;                                                          \
     (hvm)->stack_size -= 1;                                                    \
     (hvm)->ip += 1;                                                            \
@@ -493,108 +493,47 @@ Err hvm_execute_inst(Hvm *hvm) {
     break;
 
   case INST_PLUSI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-    hvm->stack[hvm->stack_size - 2].as_u64 +=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, +);
     break;
 
   case INST_MINUSI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-    hvm->stack[hvm->stack_size - 2].as_u64 -=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, -);
     break;
 
   case INST_MULTI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-    hvm->stack[hvm->stack_size - 2].as_u64 *=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, *);
     break;
 
   case INST_DIVI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
     if (hvm->stack[hvm->stack_size - 1].as_u64 == 0) {
       return ERR_DIV_BY_ZERO;
     }
 
-    hvm->stack[hvm->stack_size - 2].as_u64 /=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, /);
     break;
 
   case INST_MODI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
     if (hvm->stack[hvm->stack_size - 1].as_u64 == 0) {
       return ERR_DIV_BY_ZERO;
     }
 
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 %
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, %);
     break;
 
   case INST_PLUSF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_f64 +=
-        hvm->stack[hvm->stack_size - 1].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, f64, +);
     break;
 
   case INST_MINUSF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_f64 -=
-        hvm->stack[hvm->stack_size - 1].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, f64, -);
     break;
 
   case INST_MULTF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_f64 *=
-        hvm->stack[hvm->stack_size - 1].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, f64, *);
     break;
 
   case INST_DIVF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_f64 /=
-        hvm->stack[hvm->stack_size - 1].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, f64, /);
     break;
 
   case INST_JMP:
@@ -645,27 +584,11 @@ Err hvm_execute_inst(Hvm *hvm) {
   // TODO(#7): Inconsistency between gef and minus* instructions operand
   // ordering
   case INST_GEF:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 1].as_f64 >=
-        hvm->stack[hvm->stack_size - 2].as_f64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, f64, u64, >=);
     break;
 
   case INST_GEI:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 >=
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, >=);
     break;
 
   case INST_JMP_IF:
@@ -722,63 +645,23 @@ Err hvm_execute_inst(Hvm *hvm) {
     break;
 
   case INST_ANDB:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 &
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, &);
     break;
 
   case INST_ORB:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 |
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, |);
     break;
 
   case INST_XOR:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 ^
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, ^);
     break;
 
   case INST_SHR:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64 >>
-        hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, >>);
     break;
 
   case INST_SHL:
-    if (hvm->stack_size < 2) {
-      return ERR_STACK_UNDERFLOW;
-    }
-
-    hvm->stack[hvm->stack_size - 2].as_u64 =
-        hvm->stack[hvm->stack_size - 2].as_u64
-        << hvm->stack[hvm->stack_size - 1].as_u64;
-    hvm->stack_size -= 1;
-    hvm->ip += 1;
+    BINARY_OP(hvm, u64, u64, <<);
     break;
 
   case INST_NOTB:
