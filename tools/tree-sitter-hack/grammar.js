@@ -85,6 +85,10 @@ module.exports = grammar({
       'write16',
       'write32',
       'write64',
+      'i2f',
+      'u2f',
+      'f2i',
+      'f2u',
     ),
 
     identifier: () => token(prec(-1, /[A-Za-z.@_][A-Za-z0-9.@_$-]*/)),
