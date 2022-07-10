@@ -22,6 +22,7 @@
     "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and suhvmit a Pull Request to https://github.com/frexsdev/hvm"
 #endif
 
+#define HVM_WORD_SIZE 8
 #define HVM_STACK_CAPACITY 1024
 #define HVM_PROGRAM_CAPACITY 1024
 #define HVM_NATIVES_CAPACITY 1024
@@ -145,7 +146,8 @@ Word word_i64(int64_t i64);
 Word word_f64(double f64);
 Word word_ptr(void *ptr);
 
-static_assert(sizeof(Word) == 8, "The HVM's Word is expected to be 64 bits");
+static_assert(sizeof(Word) == HVM_WORD_SIZE,
+              "The HVM's Word is expected to be 64 bits");
 
 typedef struct {
   Inst_Type type;

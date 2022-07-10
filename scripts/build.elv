@@ -8,7 +8,7 @@ if (not-eq '' $E:CC) { set cc = $E:CC }
 var cflags = '-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -Wconversion -pedantic -fno-strict-aliasing -ggdb -std=c11'
 var libs = ''
 
-var tools = [hackc hack dehack hdb]
+var tools = [hackc hack dehack hdb hack2nasm]
 var examples = [(e:ls examples/**.hack)]
 
 var run = {|cmd| eval $cmd; echo '+ '$cmd}

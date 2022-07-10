@@ -1,7 +1,8 @@
 *.har
-hack
-hackc
-dehack
-examples/*.har.sym
-hdb
-tools/tree-sitter-hack/node_modules/
+*.har.sym
+/hack
+/hackc
+/hdb
+/dehack
+/hack2nasm
+/tools/tree-sitter-hack/node_modules/

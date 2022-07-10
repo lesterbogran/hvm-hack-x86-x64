@@ -4,7 +4,7 @@ let cc = 'cc'
 let cflags = ['-Wall' '-Wextra' '-Wswitch-enum' '-Wmissing-prototypes' '-Wconversion' '-pedantic' '-fno-strict-aliasing' '-ggdb' '-std=c11']
 let libs = ''
 
-let tools = ['hackc' 'hack' 'dehack' 'hdb']
+let tools = ['hackc' 'hack' 'dehack' 'hdb' 'hack2nasm']
 let examples = (ls 'examples/*.hack' | where name != 'natives.hack').name
 
 $tools
