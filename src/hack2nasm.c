@@ -13,40 +13,40 @@ Hack hack = {0};
 
 static void gen_print_i64(FILE *stream) {
   fprintf(stream, "print_i64:\n");
-  fprintf(stream, ";; extracting input from the HVM's stack\n");
-  fprintf(stream, "mov rsi, [stack_top]\n");
-  fprintf(stream, "sub rsi, HVM_WORD_SIZE\n");
-  fprintf(stream, "mov rax, [rsi]\n");
-  fprintf(stream, "mov [stack_top], rsi\n");
-  fprintf(stream, ";; rax contains the value we need to print\n");
-  fprintf(stream, ";; rdi is the counter of chars\n");
-  fprintf(stream, "mov rdi, 0\n");
-  fprintf(stream, ";; adding the new line\n");
-  fprintf(stream, "dec rsp\n");
-  fprintf(stream, "inc rdi\n");
-  fprintf(stream, "mov BYTE [rsp], 10\n");
+  fprintf(stream, "    ;; extracting input from the HVM's stack\n");
+  fprintf(stream, "    mov rsi, [stack_top]\n");
+  fprintf(stream, "    sub rsi, HVM_WORD_SIZE\n");
+  fprintf(stream, "    mov rax, [rsi]\n");
+  fprintf(stream, "    mov [stack_top], rsi\n");
+  fprintf(stream, "    ;; rax contains the value we need to print\n");
+  fprintf(stream, "    ;; rdi is the counter of chars\n");
+  fprintf(stream, "    mov rdi, 0\n");
+  fprintf(stream, "    ;; adding the new line\n");
+  fprintf(stream, "    dec rsp\n");
+  fprintf(stream, "    inc rdi\n");
+  fprintf(stream, "    mov BYTE [rsp], 10\n");
   fprintf(stream, ".loop:\n");
-  fprintf(stream, "xor rdx, rdx\n");
-  fprintf(stream, "mov rbx, 10\n");
-  fprintf(stream, "div rbx\n");
-  fprintf(stream, "add rdx, '0'\n");
-  fprintf(stream, "dec rsp\n");
-  fprintf(stream, "inc rdi\n");
-  fprintf(stream, "mov [rsp], dl\n");
-  fprintf(stream, "cmp rax, 0\n");
-  fprintf(stream, "jne .loop\n");
-  fprintf(stream, ";; rsp - points at the beginning of the buf\n");
-  fprintf(stream, ";; rdi - contains the size of the buf\n");
-  fprintf(stream, ";; printing the buffer\n");
-  fprintf(stream, "mov rbx, rdi\n");
-  fprintf(stream, ";; write(STDOUT, buf, buf_size)\n");
-  fprintf(stream, "mov rax, SYS_WRITE\n");
-  fprintf(stream, "mov rdi, STDOUT\n");
-  fprintf(stream, "mov rsi, rsp\n");
-  fprintf(stream, "mov rdx, rbx\n");
-  fprintf(stream, "syscall\n");
-  fprintf(stream, "add rsp, rbx\n");
-  fprintf(stream, "ret\n");
+  fprintf(stream, "    xor rdx, rdx\n");
+  fprintf(stream, "    mov rbx, 10\n");
+  fprintf(stream, "    div rbx\n");
+  fprintf(stream, "    add rdx, '0'\n");
+  fprintf(stream, "    dec rsp\n");
+  fprintf(stream, "    inc rdi\n");
+  fprintf(stream, "    mov [rsp], dl\n");
+  fprintf(stream, "    cmp rax, 0\n");
+  fprintf(stream, "    jne .loop\n");
+  fprintf(stream, "    ;; rsp - points at the beginning of the buf\n");
+  fprintf(stream, "    ;; rdi - contains the size of the buf\n");
+  fprintf(stream, "    ;; printing the buffer\n");
+  fprintf(stream, "    mov rbx, rdi\n");
+  fprintf(stream, "    ;; write(STDOUT, buf, buf_size)\n");
+  fprintf(stream, "    mov rax, SYS_WRITE\n");
+  fprintf(stream, "    mov rdi, STDOUT\n");
+  fprintf(stream, "    mov rsi, rsp\n");
+  fprintf(stream, "    mov rdx, rbx\n");
+  fprintf(stream, "    syscall\n");
+  fprintf(stream, "    add rsp, rbx\n");
+  fprintf(stream, "    ret\n");
 }
 
 int main(int argc, char *argv[]) {
@@ -69,145 +69,212 @@ int main(int argc, char *argv[]) {
   gen_print_i64(stdout);
   printf("_start:\n");
 
+  size_t jmp_if_escape_count = 0;
   for (size_t i = 0; i < hack.program_size; ++i) {
     Inst inst = hack.program[i];
 
+    printf("inst_%zu:\n", i);
     switch (inst.type) {
     case INST_NOP:
-      assert(false && "nop is not implemented yet");
-    case INST_PUSH:
-      printf(";; push %" PRIu64 "\n", inst.operand.as_u64);
-      printf("mov rsi, [stack_top]\n");
-      printf("mov QWORD [rsi], %" PRIu64 "\n", inst.operand.as_u64);
-      printf("add QWORD [stack_top], HVM_WORD_SIZE\n");
-      break;
+      assert(false && "NOP is not implemented");
+    case INST_PUSH: {
+      printf("    ;; push %" PRIu64 "\n", inst.operand.as_u64);
+      printf("    mov rsi, [stack_top]\n");
+      printf("    mov QWORD [rsi], %" PRIu64 "\n", inst.operand.as_u64);
+      printf("    add QWORD [stack_top], HVM_WORD_SIZE\n");
+    } break;
     case INST_DROP:
-      assert(false && "drop is not implemented yet");
-    case INST_DUP:
-      assert(false && "dup is not implemented yet");
-    case INST_SWAP:
-      assert(false && "swap is not implemented yet");
-    case INST_PLUSI:
-      printf(";; plusi\n");
-      printf("mov rsi, [stack_top]\n");
-      printf("sub rsi, HVM_WORD_SIZE\n");
-      printf("mov rbx, [rsi]\n");
-      printf("sub rsi, HVM_WORD_SIZE\n");
-      printf("mov rax, [rsi]\n");
-      printf("add rax, rbx\n");
-      printf("mov [rsi], rax\n");
-      printf("add rsi, HVM_WORD_SIZE\n");
-      printf("mov [stack_top], rsi\n");
-      break;
-    case INST_MINUSI:
-      assert(false && "minusi is not implemented yet");
+      assert(false && "DROP is not implemented");
+    case INST_DUP: {
+      printf("    ;; dup %" PRIu64 "\n", inst.operand.as_u64);
+      printf("    mov rsi, [stack_top]\n");
+      printf("    mov rdi, rsi\n");
+      printf("    sub rdi, HVM_WORD_SIZE * (%" PRIu64 " + 1)\n",
+             inst.operand.as_u64);
+      printf("    mov rax, [rdi]\n");
+      printf("    mov [rsi], rax\n");
+      printf("    add rsi, HVM_WORD_SIZE\n");
+      printf("    mov [stack_top], rsi\n");
+    } break;
+    case INST_SWAP: {
+      printf("    ;; swap %" PRIu64 "\n", inst.operand.as_u64);
+      printf("    mov rsi, [stack_top]\n");
+      printf("    sub rsi, HVM_WORD_SIZE\n");
+      printf("    mov rdi, rsi\n");
+      printf("    sub rdi, HVM_WORD_SIZE * %" PRIu64 "\n", inst.operand.as_u64);
+      printf("    mov rax, [rsi]\n");
+      printf("    mov rbx, [rdi]\n");
+      printf("    mov [rdi], rax\n");
+      printf("    mov [rsi], rbx\n");
+    } break;
+    case INST_PLUSI: {
+      printf("    ;; plusi\n");
+      printf("    mov rsi, [stack_top]\n");
+      printf("    sub rsi, HVM_WORD_SIZE\n");
+      printf("    mov rbx, [rsi]\n");
+      printf("    sub rsi, HVM_WORD_SIZE\n");
+      printf("    mov rax, [rsi]\n");
+      printf("    add rax, rbx\n");
+      printf("    mov [rsi], rax\n");
+      printf("    add rsi, HVM_WORD_SIZE\n");
+      printf("    mov [stack_top], rsi\n");
+    } break;
+    case INST_MINUSI: {
+      printf("    ;; minusi\n");
+      printf("    mov rsi, [stack_top]\n");
+      printf("    sub rsi, HVM_WORD_SIZE\n");
+      printf("    mov rbx, [rsi]\n");
+      printf("    sub rsi, HVM_WORD_SIZE\n");
+      printf("    mov rax, [rsi]\n");
+      printf("    sub rax, rbx\n");
+      printf("    mov [rsi], rax\n");
+      printf("    add rsi, HVM_WORD_SIZE\n");
+      printf("    mov [stack_top], rsi\n");
+    } break;
     case INST_MULTI:
-      assert(false && "multi is not implemented yet");
+      assert(false && "MULTI is not implemented");
     case INST_DIVI:
-      assert(false && "divi is not implemented yet");
+      assert(false && "DIVI is not implemented");
     case INST_MODI:
-      assert(false && "modi is not implemented yet");
+      assert(false && "MODI is not implemented");
     case INST_PLUSF:
-      assert(false && "plusf is not implemented yet");
+      assert(false && "PLUSF is not implemented");
     case INST_MINUSF:
-      assert(false && "minusf is not implemented yet");
+      assert(false && "MINUSF is not implemented");
     case INST_MULTF:
-      assert(false && "multf is not implemented yet");
+      assert(false && "MULTF is not implemented");
     case INST_DIVF:
-      assert(false && "divf is not implemented yet");
+      assert(false && "DIVF is not implemented");
     case INST_JMP:
-      assert(false && "jmp is not implemented yet");
-    case INST_JMP_IF:
-      assert(false && "jmp_if is not implemented yet");
+      assert(false && "JMP is not implemented");
+    case INST_JMP_IF: {
+      printf("    ;; jmp_if %" PRIu64 "\n", inst.operand.as_u64);
+      printf("    mov rsi, [stack_top]\n");
+      printf("    sub rsi, HVM_WORD_SIZE\n");
+      printf("    mov rax, [rsi]\n");
+      printf("    mov [stack_top], rsi\n");
+      printf("    cmp rax, 0\n");
+      printf("    je jmp_if_escape_%zu\n", jmp_if_escape_count);
+      printf("    mov rdi, inst_map\n");
+      printf("    add rdi, HVM_WORD_SIZE * %" PRIu64 "\n", inst.operand.as_u64);
+      printf("    jmp [rdi]\n");
+      printf("jmp_if_escape_%zu:\n", jmp_if_escape_count);
+      jmp_if_escape_count += 1;
+    } break;
     case INST_RET:
-      assert(false && "ret is not implemented yet");
+      assert(false && "RET is not implemented");
     case INST_CALL:
-      assert(false && "call is not implemented yet");
-    case INST_NATIVE:
+      assert(false && "CALL is not implemented");
+    case INST_NATIVE: {
       if (inst.operand.as_u64 == 3) {
-        printf(";; native print_i64\n");
-        printf("call print_i64\n");
+        printf("    ;; native print_i64\n");
+        printf("    call print_i64\n");
       } else {
         assert(false && "unsupported native function");
       }
-      break;
-    case INST_HALT:
-      printf(";; halt\n");
-      printf("mov rax, SYS_EXIT\n");
-      printf("mov rdi, 0\n");
-      printf("syscall\n");
-      break;
-    case INST_NOT:
-      assert(false && "not is not implemented yet");
-    case INST_EQI:
-      assert(false && "eqi is not implemented yet");
+    } break;
+    case INST_HALT: {
+      printf("    ;; halt\n");
+      printf("    mov rax, SYS_EXIT\n");
+      printf("    mov rdi, 0\n");
+      printf("    syscall\n");
+    } break;
+    case INST_NOT: {
+      printf("    ;; not\n");
+      printf("    mov rsi, [stack_top]\n");
+      printf("    sub rsi, HVM_WORD_SIZE\n");
+      printf("    mov rax, [rsi]\n");
+      printf("    cmp rax, 0\n");
+      printf("    mov rax, 0\n");
+      printf("    setz al\n");
+      printf("    mov [rsi], rax\n");
+    } break;
+    case INST_EQI: {
+      printf("    ;; eqi\n");
+      printf("    mov rsi, [stack_top]\n");
+      printf("    sub rsi, HVM_WORD_SIZE\n");
+      printf("    mov rbx, [rsi]\n");
+      printf("    sub rsi, HVM_WORD_SIZE\n");
+      printf("    mov rax, [rsi]\n");
+      printf("    cmp rax, rbx\n");
+      printf("    mov rax, 0\n");
+      printf("    setz al\n");
+      printf("    mov [rsi], rax\n");
+      printf("    add rsi, HVM_WORD_SIZE\n");
+      printf("    mov [stack_top], rsi\n");
+    } break;
     case INST_GEI:
-      assert(false && "gei is not implemented yet");
+      assert(false && "GEI is not implemented");
     case INST_GTI:
-      assert(false && "gti is not implemented yet");
+      assert(false && "GTI is not implemented");
     case INST_LEI:
-      assert(false && "lei is not implemented yet");
+      assert(false && "LEI is not implemented");
     case INST_LTI:
-      assert(false && "lti is not implemented yet");
+      assert(false && "LTI is not implemented");
     case INST_NEI:
-      assert(false && "nei is not implemented yet");
+      assert(false && "NEI is not implemented");
     case INST_EQF:
-      assert(false && "eqf is not implemented yet");
+      assert(false && "EQF is not implemented");
     case INST_GEF:
-      assert(false && "gef is not implemented yet");
+      assert(false && "GEF is not implemented");
     case INST_GTF:
-      assert(false && "gtf is not implemented yet");
+      assert(false && "GTF is not implemented");
     case INST_LEF:
-      assert(false && "lef is not implemented yet");
+      assert(false && "LEF is not implemented");
     case INST_LTF:
-      assert(false && "ltf is not implemented yet");
+      assert(false && "LTF is not implemented");
     case INST_NEF:
-      assert(false && "nef is not implemented yet");
+      assert(false && "NEF is not implemented");
     case INST_ANDB:
-      assert(false && "andb is not implemented yet");
+      assert(false && "ANDB is not implemented");
     case INST_ORB:
-      assert(false && "orb is not implemented yet");
+      assert(false && "ORB is not implemented");
     case INST_XOR:
-      assert(false && "xor is not implemented yet");
+      assert(false && "XOR is not implemented");
     case INST_SHR:
-      assert(false && "shr is not implemented yet");
+      assert(false && "SHR is not implemented");
     case INST_SHL:
-      assert(false && "shl is not implemented yet");
+      assert(false && "SHL is not implemented");
     case INST_NOTB:
-      assert(false && "notb is not implemented yet");
+      assert(false && "NOTB is not implemented");
     case INST_READ8:
-      assert(false && "read8 is not implemented yet");
+      assert(false && "READ8 is not implemented");
     case INST_READ16:
-      assert(false && "read16 is not implemented yet");
+      assert(false && "READ16 is not implemented");
     case INST_READ32:
-      assert(false && "read32 is not implemented yet");
+      assert(false && "READ32 is not implemented");
     case INST_READ64:
-      assert(false && "read64 is not implemented yet");
+      assert(false && "READ64 is not implemented");
     case INST_WRITE8:
-      assert(false && "write8 is not implemented yet");
+      assert(false && "WRITE8 is not implemented");
     case INST_WRITE16:
-      assert(false && "write16 is not implemented yet");
+      assert(false && "WRITE16 is not implemented");
     case INST_WRITE32:
-      assert(false && "write32 is not implemented yet");
+      assert(false && "WRITE32 is not implemented");
     case INST_WRITE64:
-      assert(false && "write64 is not implemented yet");
+      assert(false && "WRITE64 is not implemented");
     case INST_I2F:
-      assert(false && "i2f is not implemented yet");
+      assert(false && "I2F is not implemented");
     case INST_U2F:
-      assert(false && "u2f is not implemented yet");
+      assert(false && "U2F is not implemented");
     case INST_F2I:
-      assert(false && "f2i is not implemented yet");
+      assert(false && "F2I is not implemented");
     case INST_F2U:
-      assert(false && "f2u is not implemented yet");
+      assert(false && "F2U is not implemented");
     case NUMBER_OF_INSTS:
     default:
       assert(false && "unknown instruction");
     }
   }
 
-  printf("ret\n");
+  printf("    ret\n");
   printf("segment .data\n");
   printf("stack_top: dq stack\n");
+  printf("inst_map: dq");
+  for (size_t i = 0; i < hack.program_size; ++i) {
+    printf(" inst_%zu,", i);
+  }
+  printf("\n");
   printf("segment .bss\n");
   printf("stack: resq HVM_STACK_CAPACITY\n");
 

@@ -1,5 +1,9 @@
 *.har
 *.har.sym
+*.exe
+*.o
+*.asm
+
 /hack
 /hackc
 /hdb
