@@ -264,6 +264,10 @@
         },
         {
           "type": "STRING",
+          "value": "eqf"
+        },
+        {
+          "type": "STRING",
           "value": "halt"
         },
         {
@@ -333,6 +337,22 @@
         {
           "type": "STRING",
           "value": "write64"
+        },
+        {
+          "type": "STRING",
+          "value": "i2f"
+        },
+        {
+          "type": "STRING",
+          "value": "u2f"
+        },
+        {
+          "type": "STRING",
+          "value": "f2i"
+        },
+        {
+          "type": "STRING",
+          "value": "f2u"
         }
       ]
     },

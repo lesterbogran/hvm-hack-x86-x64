@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
   }
   const char *output_file_path = shift(&argc, &argv);
 
-  hack_translate_source(&hack, sv_from_cstr(input_file_path), 0);
+  hack_translate_source(&hack, sv_from_cstr(input_file_path));
   hack_save_to_file(&hack, output_file_path);
 
   if (have_symbol_table) {

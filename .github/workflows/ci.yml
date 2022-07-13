@@ -43,3 +43,5 @@ jobs:
         # this replaces default PowerShell, which can't fail the build
         run: |
           ./build_msvc.bat examples
+# TODO(#35): there is no CI build for FreeBSD
+# TODO(#36): the x86-64 examples are not build on CI

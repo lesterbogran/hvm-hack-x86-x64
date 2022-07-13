@@ -22,6 +22,7 @@
     "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and suhvmit a Pull Request to https://github.com/frexsdev/hvm"
 #endif
 
+#define HVM_WORD_SIZE 8
 #define HVM_STACK_CAPACITY 1024
 #define HVM_PROGRAM_CAPACITY 1024
 #define HVM_NATIVES_CAPACITY 1024
@@ -145,7 +146,8 @@ Word word_i64(int64_t i64);
 Word word_f64(double f64);
 Word word_ptr(void *ptr);
 
-static_assert(sizeof(Word) == 8, "The HVM's Word is expected to be 64 bits");
+static_assert(sizeof(Word) == HVM_WORD_SIZE,
+              "The HVM's Word is expected to be 64 bits");
 
 typedef struct {
   Inst_Type type;
@@ -226,6 +228,8 @@ typedef struct {
   size_t memory_capacity;
 
   Arena arena;
+
+  size_t include_level;
 } Hack;
 
 bool hack_resolve_binding(const Hack *hack, String_View name, Word *output);
@@ -234,8 +238,7 @@ void hack_push_deferred_operand(Hack *hack, Inst_Addr addr, String_View name);
 bool hack_translate_literal(Hack *hack, String_View sv, Word *output);
 void hack_save_to_file(Hack *hack, const char *output_file_path);
 Word hack_push_string_to_memory(Hack *hack, String_View sv);
-void hack_translate_source(Hack *hack, String_View input_file_path,
-                           size_t level);
+void hack_translate_source(Hack *hack, String_View input_file_path);
 
 void hvm_load_standard_natives(Hvm *hvm);
 
@@ -1224,8 +1227,7 @@ void hack_save_to_file(Hack *hack, const char *file_path) {
   fclose(f);
 }
 
-void hack_translate_source(Hack *hack, String_View input_file_path,
-                           size_t level) {
+void hack_translate_source(Hack *hack, String_View input_file_path) {
   String_View original_source = arena_slurp_file(&hack->arena, input_file_path);
   String_View source = original_source;
 
@@ -1277,14 +1279,14 @@ void hack_translate_source(Hack *hack, String_View input_file_path,
               line.data += 1;
               line.count -= 2;
 
-              if (level + 1 >= HACK_MAX_INCLUDE_LEVEL) {
+              if (hack->include_level + 1 >= HACK_MAX_INCLUDE_LEVEL) {
                 fprintf(stderr,
                         "%.*s:%d: ERROR: exceeded maximum include level\n",
                         SV_FORMAT(input_file_path), line_number);
                 exit(1);
               }
 
-              hack_translate_source(hack, line, level + 1);
+              hack_translate_source(hack, line);
             } else {
               fprintf(stderr,
                       "%.*s:%d: ERROR: include file path has to be surrounded "

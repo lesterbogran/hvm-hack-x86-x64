@@ -142,7 +142,19 @@
     "named": false
   },
   {
+    "type": "eqf",
+    "named": false
+  },
+  {
     "type": "eqi",
+    "named": false
+  },
+  {
+    "type": "f2i",
+    "named": false
+  },
+  {
+    "type": "f2u",
     "named": false
   },
   {
@@ -155,6 +167,10 @@
   },
   {
     "type": "halt",
+    "named": false
+  },
+  {
+    "type": "i2f",
     "named": false
   },
   {
@@ -259,6 +275,10 @@
   },
   {
     "type": "swap",
+    "named": false
+  },
+  {
+    "type": "u2f",
     "named": false
   },
   {
