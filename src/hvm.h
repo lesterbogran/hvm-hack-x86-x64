@@ -19,7 +19,7 @@
   __pragma(pack(push, 1)) __Declaration__ __pragma(pack(pop))
 #else
 #error                                                                         \
-    "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and suhvmit a Pull Request to https://github.com/frexsdev/hvm"
+    "Packed attributes for struct is not implemented for this compiler. This may result in a program working incorrectly. Feel free to fix that and submit a Pull Request to https://github.com/frexsdev/hvm"
 #endif
 
 #define HVM_WORD_SIZE 8
