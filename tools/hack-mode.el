@@ -57,7 +57,8 @@
                  (hack--interleave keywords "\\|"))
                 "\\)\\>")))
   (setq hack-highlights
-        `(("%[[:word:]_]+" . font-lock-preprocessor-face)
+        `(("'[a-zA-Z0-9]'" . font-lock-string-face)
+          ("%[[:word:]_]+" . font-lock-preprocessor-face)
           ("[[:word:]_]+\\:" . font-lock-constant-face)
           ("\\_<\-?[0-9.]+\\_>+" . font-lock-preprocessor-face)
           (,keywords-regexp . font-lock-keyword-face))))

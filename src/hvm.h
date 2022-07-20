@@ -1180,7 +1180,15 @@ Word hack_push_string_to_memory(Hack *hack, String_View sv) {
 }
 
 bool hack_translate_literal(Hack *hack, String_View sv, Word *output) {
-  if (sv.count >= 2 && *sv.data == '"' && sv.data[sv.count - 1] == '"') {
+  if (sv.count >= 2 && *sv.data == '\'' && sv.data[sv.count - 1] == '\'') {
+    if (sv.count - 2 != 1) {
+      return false;
+    }
+
+    *output = word_u64((uint64_t)sv.data[1]);
+
+    return true;
+  } else if (sv.count >= 2 && *sv.data == '"' && sv.data[sv.count - 1] == '"') {
     // TODO(#23): string literals don't support escaped characters
     sv.data += 1;
     sv.count -= 2;
@@ -1341,7 +1349,8 @@ void hack_translate_source(Hack *hack, String_View input_file_path) {
 
           if (line.count == 0) {
             fprintf(stderr,
-                    "%"SV_Fmt":%d: ERROR: literal or binding name is expected\n",
+                    "%" SV_Fmt
+                    ":%d: ERROR: literal or binding name is expected\n",
                     SV_Arg(input_file_path), line_number);
             exit(1);
           }
@@ -1431,8 +1440,7 @@ void hack_translate_source(Hack *hack, String_View input_file_path) {
 
   if (hack->has_entry && (hack->deferred_entry_binding_name.count > 0)) {
     Word output = {0};
-    if (!hack_resolve_binding(hack,
-                              hack->deferred_entry_binding_name,
+    if (!hack_resolve_binding(hack, hack->deferred_entry_binding_name,
                               &output)) {
       fprintf(stderr, "%" SV_Fmt ": ERROR: unknown binding `%" SV_Fmt "`\n",
               SV_Arg(input_file_path),
