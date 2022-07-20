@@ -162,6 +162,7 @@ struct Hvm {
   Inst program[HVM_PROGRAM_CAPACITY];
   uint64_t program_size;
   Inst_Addr ip;
+  Inst_Addr entry;
 
   Hvm_Native natives[HVM_NATIVES_CAPACITY];
   size_t natives_size;
@@ -178,12 +179,13 @@ void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 
 #define HAR_MAGIC 0x4D5648
-#define HAR_VERSION 4
+#define HAR_VERSION 5
 
 PACK(struct Har_Meta {
   uint32_t magic;
   uint16_t version;
   uint64_t program_size;
+  uint64_t entry;
   uint64_t memory_size;
   uint64_t memory_capacity;
 });
