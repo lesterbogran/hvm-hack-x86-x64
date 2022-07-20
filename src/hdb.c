@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
   }
 
   // TODO(#34): repeat previous command in hdb
-  while (1) {
+  while (!feof(stdin)) {
     printf("(hdb) ");
     char input_buf[32];
     fgets(input_buf, 32, stdin);
