@@ -1,9 +1,9 @@
 ;; Fill up the memory with number from 0 to N
 %include "./examples/natives.hack"
 
-
 %bind N 256
 
+main:
     push 0        ; i
 loop:
     dup 0
@@ -26,3 +26,4 @@ loop:
     
     halt
     
+%entry main

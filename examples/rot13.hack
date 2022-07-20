@@ -16,8 +16,6 @@
 %bind a 97
 %bind z 122
 
-jmp main
-
 ; high >= value >= low
 is_between:
     swap 3
@@ -44,11 +42,10 @@ rot13:
 
 main:
     push 0
-
 loop:
     dup 0
     read8
-
+    
     upper_case:
         dup 0
         push A
@@ -56,16 +53,16 @@ loop:
         call is_between
         not
         jmp_if lower_case
-
+        
         push A      ; lower bound
         call rot13
-
+        
         dup 1
         swap 1
         write8
-
+        
         jmp inc
-
+        
     lower_case:
         dup 0
         push a
@@ -82,7 +79,7 @@ loop:
         write8
 
         jmp inc
-
+        
     not_a_rot_char:
         drop    ; drop the current character on the stack as it's not supported
                 ; by ROT13, effectively its state in memory is unaltered
@@ -109,3 +106,5 @@ print:
     native write
 
     halt
+
+%entry main

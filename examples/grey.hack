@@ -1,8 +1,6 @@
 ;; Generate N Gray Code numbers https://en.wikipedia.org/wiki/Gray_Code
 
 %include "./examples/natives.hack"
-    
-    jmp main
 
 %bind N 100
 
@@ -27,3 +25,5 @@ loop:
     jmp_if loop
 
     halt
+
+%entry main

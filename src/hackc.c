@@ -40,6 +40,18 @@ int main(int argc, char **argv) {
   // the static memory.
   static Hack hack = {0};
   hack_translate_source(&hack, sv_from_cstr(input_file_path));
+
+  if (!hack.has_entry) {
+    fprintf(stderr,
+            "%s: ERROR: entry point for a Hvm program is not provided. Use "
+            "preprocessor directive %%entry to provide the entry point. "
+            "Examples:\n",
+            input_file_path);
+    fprintf(stderr, "   %%entry main\n");
+    fprintf(stderr, "   %%entry 42\n");
+    exit(1);
+  }
+
   hack_save_to_file(&hack, output_file_path);
 
   if (have_symbol_table) {
