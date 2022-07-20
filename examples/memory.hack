@@ -1,7 +1,6 @@
 ;; Fill up the memory with number from 0 to N
 %include "./examples/natives.hack"
 
-;; TODO(#21): hack does not support string literals
 
 %bind N 256
 
