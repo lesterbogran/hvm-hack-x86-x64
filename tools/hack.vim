@@ -36,6 +36,7 @@ syntax match hackFloat  display "\<[0-9][0-9_]*\%(\.[0-9][0-9_]*\)"
 
 " Strings
 syntax region hackString start=/\v"/ skip=/\v\\./ end=/\v"/
+syntax region hackCharacter start=/\v'/ skip=/\v\\./ end=/\v'/
 
 " Set highlights
 highlight default link hackTodos Todo
@@ -46,5 +47,6 @@ highlight default link hackDecInt Number
 highlight default link hackHexInt Number
 highlight default link hackFloat Float
 highlight default link hackString String
+highlight default link hackCharacter String
 
 let b:current_syntax = "hack"
