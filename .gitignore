@@ -4,6 +4,7 @@
 *.o
 *.asm
 
+/build/
 /hack
 /hackc
 /hdb

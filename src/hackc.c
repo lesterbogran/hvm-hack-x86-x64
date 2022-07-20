@@ -1,15 +1,6 @@
 #define HVM_IMPLEMENTATION
 #include "./hvm.h"
 
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__NetBSD__) ||       \
-    defined(__OpenBSD__) || defined(__DragonFly__)
-#include <limits.h>
-#else
-#define PATH_MAX 4096
-#endif
-
-Hack hack = {0};
-
 static char *shift(int *argc, char ***argv) {
   assert(*argc > 0);
   char *result = **argv;
@@ -45,16 +36,16 @@ int main(int argc, char **argv) {
   }
   const char *output_file_path = shift(&argc, &argv);
 
+  // NOTE: The structure might be quite big due its arena. Better allocate it in
+  // the static memory.
+  static Hack hack = {0};
   hack_translate_source(&hack, sv_from_cstr(input_file_path));
   hack_save_to_file(&hack, output_file_path);
 
   if (have_symbol_table) {
-    char sym_file_name[PATH_MAX];
+    const char *sym_file_name =
+        arena_cstr_concat2(&hack.arena, output_file_path, ".sym");
 
-    size_t output_file_path_len = strlen(output_file_path);
-
-    memcpy(sym_file_name, output_file_path, output_file_path_len);
-    memcpy(sym_file_name + output_file_path_len, ".sym", 5);
     FILE *symbol_file = fopen(sym_file_name, "w");
     if (!symbol_file) {
       fprintf(stderr, "ERROR: Unable to open symbol table file\n");
@@ -67,6 +58,7 @@ int main(int argc, char **argv) {
     // labels are allocated in a way that enables us to just
     // overwrite prerocessor labels with a value equal to the
     // address of a jump label.
+
     for (size_t i = 0; i < hack.bindings_size; ++i) {
       fprintf(symbol_file, "%" PRIu64 "\t%.*s\n", hack.bindings[i].value.as_u64,
               (int)hack.bindings[i].name.count, hack.bindings[i].name.data);

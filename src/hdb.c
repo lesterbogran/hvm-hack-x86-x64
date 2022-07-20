@@ -175,8 +175,6 @@ Hdb_Err hdb_parse_label_or_addr(Hdb_State *st, const char *in, Inst_Addr *out) {
   return HDB_OK;
 }
 
-Hdb_State state = {0};
-
 // TODO(#27): support for native function in the debugger
 // TODO(#28): there is no way to examine the memory in hdb
 // TODO(#29): using String_View for parsing in hdb
@@ -189,6 +187,8 @@ int main(int argc, char **argv) {
 
   // Create the HDB state and initialize it with the file names
 
+  // NOTE: The structure might be quite big due its arena. Better allocate it in the static memory.
+  static Hdb_State state = {0};
   state.hvm.halt = 1;
 
   printf("HDB - The HVM debugger.\n"

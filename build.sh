@@ -7,12 +7,13 @@ CFLAGS='-Wall -Wextra -Wswitch-enum -Wmissing-prototypes -Wconversion -pedantic 
 LIBS=
 
 (set -x ;\
-    $CC $CFLAGS -o hackc     ./src/hackc.c     $LIBS ;\
-    $CC $CFLAGS -o hack      ./src/hack.c      $LIBS ;\
-    $CC $CFLAGS -o hdb       ./src/hdb.c       $LIBS ;\
-    $CC $CFLAGS -o hack2nasm ./src/hack2nasm.c $LIBS ;\
-    $CC $CFLAGS -o dehack    ./src/dehack.c    $LIBS)
+ $CC $CFLAGS -o build/bin/hackc     ./src/hackc.c     $LIBS ;\
+ $CC $CFLAGS -o build/bin/hack      ./src/hack.c      $LIBS ;\
+ $CC $CFLAGS -o build/bin/hdb       ./src/hdb.c       $LIBS ;\
+ $CC $CFLAGS -o build/bin/hack2nasm ./src/hack2nasm.c $LIBS ;\
+ $CC $CFLAGS -o build/bin/dehack    ./src/dehack.c    $LIBS
+)
 
 for example in `find examples/ -name *.hack ! -name natives.hack | sed "s/.hack//"`; do
-    (set -x; ./hackc -d $example.hack $example.har)
+    (set -x; ./build/bin/hackc -d $example.hack build/$example.har)
 done

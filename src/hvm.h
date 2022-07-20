@@ -212,6 +212,7 @@ typedef struct {
 void *arena_alloc(Arena *arena, size_t size);
 String_View arena_slurp_file(Arena *arena, String_View file_path);
 String_View arena_sv_concat2(Arena *arena, const char *a, const char *b);
+const char *arena_cstr_concat2(Arena *arena, const char *a, const char *b);
 
 typedef struct {
   Binding bindings[HACK_BINDINGS_CAPACITY];
@@ -1094,6 +1095,16 @@ int sv_to_int(String_View sv) {
   }
 
   return result;
+}
+
+const char *arena_cstr_concat2(Arena *arena, const char *a, const char *b) {
+  const size_t a_len = strlen(a);
+  const size_t b_len = strlen(b);
+  char *buf = arena_alloc(arena, a_len + b_len + 1);
+  memcpy(buf, a, a_len);
+  memcpy(buf + a_len, b, b_len);
+  buf[a_len + b_len] = '\0';
+  return buf;
 }
 
 String_View arena_sv_concat2(Arena *arena, const char *a, const char *b) {

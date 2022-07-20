@@ -9,8 +9,6 @@ static void usage(FILE *stream) {
   fprintf(stream, "Usage: ./hack2nasm <input.hack>\n");
 }
 
-Hack hack = {0};
-
 static void gen_print_i64(FILE *stream) {
   fprintf(stream, "print_i64:\n");
   fprintf(stream, "    ;; extracting input from the HVM's stack\n");
@@ -56,6 +54,9 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  // NOTE: The structure might be quite big due its arena. Better allocate it in
+  // the static memory.
+  static Hack hack = {0};
   hack_translate_source(&hack, sv_from_cstr(argv[1]));
 
   printf("BITS 64\n");

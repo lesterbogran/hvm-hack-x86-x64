@@ -6,10 +6,10 @@ Simple Virtual Machine with its own Bytecode and Assembly language.
 
 ```console
 $ ./build.sh        # or `./build_msvc.bat examples` if you are on Windows
-$ ./hack -i ./examples/hello.har
-$ ./hack -i ./examples/fib.har
-$ ./hack -i ./examples/e.har
-$ ./hack -i ./examples/pi.har
+$ ./build/bin/hack -i ./build/examples/hello.har
+$ ./build/bin/hack -i ./build/examples/fib.har
+$ ./build/bin/hack -i ./build/examples/e.har
+$ ./build/bin/hack -i ./build/examples/pi.har
 ```
 
 ## Components

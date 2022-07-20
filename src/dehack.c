@@ -2,8 +2,6 @@
 #include "./hvm.h"
 #include <inttypes.h>
 
-Hvm hvm = {0};
-
 int main(int argc, char *argv[]) {
   if (argc < 2) {
     fprintf(stderr, "Usage: ./dehack <input.har>\n");
@@ -13,6 +11,8 @@ int main(int argc, char *argv[]) {
 
   const char *input_file_path = argv[1];
 
+  // NOTE: The structure might be quite big due its arena. Better allocate it in the static memory.
+  static Hvm hvm = {0};
   hvm_load_program_from_file(&hvm, input_file_path);
 
   for (Inst_Addr i = 0; i < hvm.program_size; ++i) {
