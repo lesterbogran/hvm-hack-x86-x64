@@ -68,11 +68,14 @@ int main(int argc, char *argv[]) {
   printf("segment .text\n");
   printf("global _start\n");
   gen_print_i64(stdout);
-  printf("_start:\n");
 
   size_t jmp_if_escape_count = 0;
   for (size_t i = 0; i < hack.program_size; ++i) {
     Inst inst = hack.program[i];
+
+    if (i == hack.entry) {
+      printf("_start:\n");
+    }
 
     printf("inst_%zu:\n", i);
     switch (inst.type) {
