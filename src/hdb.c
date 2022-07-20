@@ -176,7 +176,6 @@ Hdb_Err hdb_parse_label_or_addr(Hdb_State *st, const char *in, Inst_Addr *out) {
 }
 
 // TODO(#28): there is no way to examine the memory in hdb
-// TODO(#29): using String_View for parsing in hdb
 
 int main(int argc, char **argv) {
   if (argc < 2) {
