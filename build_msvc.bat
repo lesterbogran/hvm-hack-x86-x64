@@ -18,3 +18,6 @@ if "%1" == "examples" setlocal EnableDelayedExpansion && for /F "tokens=*" %%e i
     set name=%%e
     ".\build\bin\hackc.exe" -d .\examples\%%e .\build\examples\!name:~0,-4!hvm
 )
+
+cd build
+tree

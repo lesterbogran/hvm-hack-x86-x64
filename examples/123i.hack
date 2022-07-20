@@ -1,9 +1,12 @@
 %include "./examples/natives.hack"
 
-push 1
-push 2
-push 3
-plusi
-plusi
-native 3
-halt
+main:
+    push 1
+    push 2
+    push 3
+    plusi
+    plusi
+    native 3
+    halt
+
+%entry main

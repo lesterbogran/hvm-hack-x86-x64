@@ -41,7 +41,12 @@ typedef struct {
   const char *data;
 } String_View;
 
-#define SV_FORMAT(sv) (int)sv.count, sv.data
+// printf macros for String_View
+#define SV_Fmt ".*s"
+#define SV_Arg(sv) (int)sv.count, sv.data
+// USAGE:
+//   String_View name = ...;
+//   printf("Name: %"SV_Fmt"\n", SV_Arg(name));
 
 String_View sv_from_cstr(const char *cstr);
 String_View sv_trim_left(String_View sv);
@@ -178,12 +183,13 @@ void hvm_dump_stack(FILE *stream, const Hvm *hvm);
 void hvm_load_program_from_file(Hvm *hvm, const char *file_path);
 
 #define HAR_MAGIC 0x4D5648
-#define HAR_VERSION 4
+#define HAR_VERSION 5
 
 PACK(struct Har_Meta {
   uint32_t magic;
   uint16_t version;
   uint64_t program_size;
+  uint64_t entry;
   uint64_t memory_size;
   uint64_t memory_capacity;
 });
@@ -220,6 +226,9 @@ typedef struct {
 
   Inst program[HVM_PROGRAM_CAPACITY];
   uint64_t program_size;
+  Inst_Addr entry;
+  bool has_entry;
+  String_View deferred_entry_binding_name;
 
   uint8_t memory[HVM_MEMORY_CAPACITY];
   size_t memory_size;
@@ -984,6 +993,8 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
     exit(1);
   }
 
+  hvm->ip = meta.entry;
+
   if (meta.memory_capacity > HVM_MEMORY_CAPACITY) {
     fprintf(stderr,
             "ERROR: %s: memory section is too big. The file wants %" PRIu64
@@ -1207,6 +1218,7 @@ void hack_save_to_file(Hack *hack, const char *file_path) {
       .magic = HAR_MAGIC,
       .version = HAR_VERSION,
       .program_size = hack->program_size,
+      .entry = hack->entry,
       .memory_size = hack->memory_size,
       .memory_capacity = hack->memory_capacity,
   };
@@ -1261,22 +1273,25 @@ void hack_translate_source(Hack *hack, String_View input_file_path) {
             String_View value = line;
             Word word = {0};
             if (!hack_translate_literal(hack, value, &word)) {
-              fprintf(stderr, "%.*s:%d: ERROR: `%.*s` is not a number",
-                      SV_FORMAT(input_file_path), line_number,
-                      SV_FORMAT(value));
+              fprintf(stderr,
+                      "%" SV_Fmt ":%d: ERROR: `%" SV_Fmt "` is not a number",
+                      SV_Arg(input_file_path), line_number, SV_Arg(value));
               exit(1);
             }
 
             if (!hack_bind_value(hack, name, word)) {
               // TODO(#14): label redefinition error does not tell where the
               // first label was already defined
-              fprintf(stderr, "%.*s:%d: ERROR: name `%.*s` is already bound\n",
-                      SV_FORMAT(input_file_path), line_number, SV_FORMAT(name));
+              fprintf(stderr,
+                      "%" SV_Fmt ":%d: ERROR: name `%" SV_Fmt
+                      "` is already bound\n",
+                      SV_Arg(input_file_path), line_number, SV_Arg(name));
               exit(1);
             }
           } else {
-            fprintf(stderr, "%.*s:%d: ERROR: binding name is not provided\n",
-                    SV_FORMAT(input_file_path), line_number);
+            fprintf(stderr,
+                    "%" SV_Fmt ":%d: ERROR: binding name is not provided\n",
+                    SV_Arg(input_file_path), line_number);
             exit(1);
           }
         } else if (sv_eq(token, sv_from_cstr("include"))) {
@@ -1289,29 +1304,62 @@ void hack_translate_source(Hack *hack, String_View input_file_path) {
 
               if (hack->include_level + 1 >= HACK_MAX_INCLUDE_LEVEL) {
                 fprintf(stderr,
-                        "%.*s:%d: ERROR: exceeded maximum include level\n",
-                        SV_FORMAT(input_file_path), line_number);
+                        "%" SV_Fmt
+                        ":%d: ERROR: exceeded maximum include level\n",
+                        SV_Arg(input_file_path), line_number);
                 exit(1);
               }
 
               hack_translate_source(hack, line);
             } else {
               fprintf(stderr,
-                      "%.*s:%d: ERROR: include file path has to be surrounded "
+                      "%" SV_Fmt
+                      ":%d: ERROR: include file path has to be surrounded "
                       "with quotation marks\n",
-                      SV_FORMAT(input_file_path), line_number);
+                      SV_Arg(input_file_path), line_number);
               exit(1);
             }
           } else {
             fprintf(stderr,
-                    "%.*s:%d: ERROR: include file path is not provided\n",
-                    SV_FORMAT(input_file_path), line_number);
+                    "%" SV_Fmt
+                    ":%d: ERROR: include file path is not provided\n",
+                    SV_Arg(input_file_path), line_number);
             exit(1);
           }
+        } else if (sv_eq(token, sv_from_cstr("entry"))) {
+          if (hack->has_entry) {
+            // TODO: "entry point already set" error does not tell where exactly
+            // the entry has been already set
+            fprintf(stderr,
+                    "%" SV_Fmt
+                    ":%d: ERROR: entry point has been already set!\n",
+                    SV_Arg(input_file_path), line_number);
+            exit(1);
+          }
+
+          line = sv_trim(line);
+
+          if (line.count == 0) {
+            fprintf(stderr,
+                    "%"SV_Fmt":%d: ERROR: literal or binding name is expected\n",
+                    SV_Arg(input_file_path), line_number);
+            exit(1);
+          }
+
+          Word entry = {0};
+
+          if (!hack_translate_literal(hack, line, &entry)) {
+            hack->deferred_entry_binding_name = line;
+          } else {
+            hack->entry = entry.as_u64;
+          }
+
+          hack->has_entry = true;
         } else {
           fprintf(stderr,
-                  "%.*s:%d: ERROR: unknown pre-processor directive `%.*s`\n",
-                  SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
+                  "%" SV_Fmt
+                  ":%d: ERROR: unknown pre-processor directive `%" SV_Fmt "`\n",
+                  SV_Arg(input_file_path), line_number, SV_Arg(token));
           exit(1);
         }
       } else {
@@ -1320,10 +1368,10 @@ void hack_translate_source(Hack *hack, String_View input_file_path) {
           String_View label = {.count = token.count - 1, .data = token.data};
 
           if (!hack_bind_value(hack, label, word_u64(hack->program_size))) {
-            fprintf(
-                stderr,
-                "%.*s:%d: ERROR: name `%.*s` is already bound to something\n",
-                SV_FORMAT(input_file_path), line_number, SV_FORMAT(label));
+            fprintf(stderr,
+                    "%" SV_Fmt ":%d: ERROR: name `%" SV_Fmt
+                    "` is already bound to something\n",
+                    SV_Arg(input_file_path), line_number, SV_Arg(label));
             exit(1);
           }
 
@@ -1340,10 +1388,10 @@ void hack_translate_source(Hack *hack, String_View input_file_path) {
 
             if (inst_has_operand(inst_type)) {
               if (operand.count == 0) {
-                fprintf(
-                    stderr,
-                    "%.*s:%d: ERROR: instruction `%.*s` requires an operand\n",
-                    SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
+                fprintf(stderr,
+                        "%" SV_Fmt ":%d: ERROR: instruction `%" SV_Fmt
+                        "` requires an operand\n",
+                        SV_Arg(input_file_path), line_number, SV_Arg(token));
                 exit(1);
               }
 
@@ -1356,8 +1404,10 @@ void hack_translate_source(Hack *hack, String_View input_file_path) {
 
             hack->program_size += 1;
           } else {
-            fprintf(stderr, "%.*s:%d: ERROR: unknown instruction `%.*s`\n",
-                    SV_FORMAT(input_file_path), line_number, SV_FORMAT(token));
+            fprintf(stderr,
+                    "%" SV_Fmt ":%d: ERROR: unknown instruction `%" SV_Fmt
+                    "`\n",
+                    SV_Arg(input_file_path), line_number, SV_Arg(token));
             exit(1);
           }
         }
@@ -1373,10 +1423,24 @@ void hack_translate_source(Hack *hack, String_View input_file_path) {
             &hack->program[hack->deferred_operands[i].addr].operand)) {
       // TODO(#15): second pass label resolution errors don't report the
       // location in the source code
-      fprintf(stderr, "%.*s: ERROR: unknown binding `%.*s`\n",
-              SV_FORMAT(input_file_path), SV_FORMAT(name));
+      fprintf(stderr, "%" SV_Fmt ": ERROR: unknown binding `%" SV_Fmt "`\n",
+              SV_Arg(input_file_path), SV_Arg(name));
       exit(1);
     }
+  }
+
+  if (hack->has_entry && (hack->deferred_entry_binding_name.count > 0)) {
+    Word output = {0};
+    if (!hack_resolve_binding(hack,
+                              hack->deferred_entry_binding_name,
+                              &output)) {
+      fprintf(stderr, "%" SV_Fmt ": ERROR: unknown binding `%" SV_Fmt "`\n",
+              SV_Arg(input_file_path),
+              SV_Arg(hack->deferred_entry_binding_name));
+      exit(1);
+    }
+
+    hack->entry = output.as_u64;
   }
 }
 
@@ -1384,8 +1448,9 @@ String_View arena_slurp_file(Arena *arena, String_View file_path) {
   char *file_path_cstr = arena_alloc(arena, file_path.count + 1);
   if (file_path_cstr == NULL) {
     fprintf(stderr,
-            "ERROR: Could not allocate memory for the file path `%.*s`: %s\n",
-            SV_FORMAT(file_path), strerror(errno));
+            "ERROR: Could not allocate memory for the file path `%" SV_Fmt
+            "`: %s\n",
+            SV_Arg(file_path), strerror(errno));
     exit(1);
   }
 

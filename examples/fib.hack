@@ -1,5 +1,6 @@
 ;; TODO(#16): hack include directive has no support for include paths
 %include "./examples/natives.hack"
+
 %bind N 30
 
 ; N-1
@@ -27,3 +28,5 @@ loop:
 
     jmp_if loop
     halt
+
+%entry main
