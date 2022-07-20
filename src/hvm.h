@@ -162,7 +162,6 @@ struct Hvm {
   Inst program[HVM_PROGRAM_CAPACITY];
   uint64_t program_size;
   Inst_Addr ip;
-  Inst_Addr entry;
 
   Hvm_Native natives[HVM_NATIVES_CAPACITY];
   size_t natives_size;
@@ -985,6 +984,8 @@ void hvm_load_program_from_file(Hvm *hvm, const char *file_path) {
             file_path, meta.program_size, (uint64_t)HVM_PROGRAM_CAPACITY);
     exit(1);
   }
+
+  hvm->ip = meta.entry;
 
   if (meta.memory_capacity > HVM_MEMORY_CAPACITY) {
     fprintf(stderr,
